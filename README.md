@@ -7,7 +7,7 @@ Data on driving incidents was collected for all 52 states in the United states.
 This lab will explore whether or not state-level factors contribute to Car insurance premiums.
 The original goal of this dataset was to determine which state had the worst drivers.
 
-[insurance]: featured.jpeg
+[insurance](https://github.com/mhc-stat340-f2019-sec02/class8_LAB/blob/master/featured.jpeg)
 
 ## LAB tasks
 
