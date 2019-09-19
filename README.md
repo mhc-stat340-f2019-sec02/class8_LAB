@@ -8,7 +8,7 @@ This lab will explore whether or not state-level factors contribute to Car insur
 The original goal of this dataset was to determine which state had the worst drivers.
 
 <p align="center">
-  <img width="200" height="200" src="https://github.com/mhc-stat340-f2019-sec02/class8_LAB/blob/master/featured.jpeg">
+  <img width="320" height="200" src="https://github.com/mhc-stat340-f2019-sec02/class8_LAB/blob/master/featured.jpeg">
 </p>
 
 ## Organization
