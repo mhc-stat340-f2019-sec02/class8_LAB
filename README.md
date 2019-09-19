@@ -13,7 +13,7 @@ The original goal of this dataset was to determine which state had the worst dri
 Instead of a private repo per student, we're going to work collaboratively in a single repository.
 You can work by yourself or with another student in a team.
 
-On the GitHub repository page for this lab, click "Fork" in the top right corner. This will create a copy of the lab repository in your own account. You will then clone this repository to RStudio. If you're working in a team, only one of you needs to fork the repository. Once you have cloned the repository, create a new .Rmd file with a name like "Lab02_teamname.Rmd", specific to your team. In that R Markdown file, complete the Lab Tasks and Discussion items outlined below. Then commit and push your work to GitHub. Your work will go to your forked version of the repository. Once you're ready, submit a pull request to merge your work back into the main class repository. I'll demo how to do this next week Monday.
+On the GitHub repository page for this lab, click "Fork" in the top right corner. This will create a copy of the lab repository in your own account. You will then clone this repository to RStudio. If you're working in a team, only one of you needs to fork the repository. Once you have cloned the repository, create a new .Rmd file with a name like "Lab02_teamname.Rmd", specific to your team. In that R Markdown file, complete the Lab Tasks and Discussion items outlined below. Then commit and push your work to GitHub. Your work will go to your forked version of the repository. Once you're ready, submit a pull request to merge your work back into the main class repository.
 
 ## Due date
 
