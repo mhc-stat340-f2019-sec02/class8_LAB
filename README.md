@@ -23,15 +23,15 @@ You must submit your pull request by 2019-09-27 at 23:59:59.
 
 ## LAB tasks
 
-* **read in the data set `data/bad-drivers.csv`**
+* **Read in the data set `data/bad-drivers.csv`**
   * Name your dataset, for example, `badDrivers <- read.csv("./data/bad-drivers.csv")`
   * (recommended) rename the columns to shorter nicknames
-* **exploratory data analysis**
+* **Exploratory data analysis**
   * Create a draftsman plot showing all pairwise comparisons between columns in the data.
   * Present a brief description of trends you see in the data, and how they may influence fitting a model.
   * Plot the estimated distribution of _Percentage of Drivers Involved in Fatal Collisions who were speeding_ using a histogram.
 	  * If you include the above covariate as an explanatory variable in your regression (part of the X), will the distribution impact your model fit?
-* **regression analysis**
+* **Regression analysis**
   * The target variable for our regression models is `Car Insurance Premiums (CIP)`, measured in dollars.
   * Pick a covariate you feel is most related to Car Insurance Premiums (I'll call this `M` for most related)
   * Fit a simple linear regression `(lm)` model that related **CIP** to **M** and save this model as `reg01`. 
