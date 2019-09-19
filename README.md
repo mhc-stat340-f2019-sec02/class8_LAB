@@ -61,12 +61,12 @@ You must submit your pull request by 2019-09-27 at 23:59:59.
 	* How does the CV error compare to the hold-out error?
 	* How does the Cross-validation MSE compare between your simple and multiple regression?
   
-## Brief Report
+<!-- ## Brief Report -->
 
-* Paragraph 1: Describe the dataset
-* Paragraph 2: Describe the models you'll use to make predictions.
-* Paragraph 3: Summarize the methods you'll use to decide which model is best. Make sure to define and describe the test metric (MSE)
-* Paragraph 4: 
+<!-- * Paragraph 1: Describe the dataset -->
+<!-- * Paragraph 2: Describe the models you'll use to make predictions. -->
+<!-- * Paragraph 3: Summarize the methods you'll use to decide which model is best. Make sure to define and describe the test metric (MSE) -->
+<!-- * Paragraph 4:  -->
 
 
 
