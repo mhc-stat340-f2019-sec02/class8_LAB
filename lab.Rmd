@@ -51,7 +51,54 @@ ggplot(drive, aes(x = pct_no_previous, y = premiums)) +
 ```
 
 
-```{r holdout}
+```{r training}
+rows <- sample(1:51, 10)
+
+test <- drive[rows,]
+train <- drive[-rows,]
+
+#Simple
+reg01 <- lm(premiums ~ pct_no_previous, train)
+summary(reg01)
+#Multiple
+reg02 <- lm(premiums ~ pct_no_previous + amt_per_bil_miles + pct_speeding, train)
+summary(reg02)
+#Polynomial
+reg03 <- lm(premiums ~ poly(pct_no_previous, 2, raw=TRUE), train)
+summary(reg03)
+
+```
+
+
+```{r test}
+
+test$predict01 <- predict(reg01, test)
+test$resid01 <- test$premiums - test$predict01
+  
+test$predict02 <- predict(reg02, test)
+test$resid02 <- test$premiums - test$predict02
+
+test$predict03 <- predict(reg03, test)
+test$resid03 <- test$premiums - test$predict03
+
+mse_01 <- mean((test$resid01)^2)
+mse_02 <- mean((test$resid02)^2)
+mse_03 <- mean((test$resid03)^2)
+
+```
+
+```{r cross val}
+
+# Number of observations
+N <- nrow(drive)
+# Number of desired splits
+folds <- 5
+
+# Generate indices of holdout observations
+cross <- split(sample(1:N), 1:folds)
+
+#df
+crossValResults <- data.frame(3,5)
 
 ```
 
