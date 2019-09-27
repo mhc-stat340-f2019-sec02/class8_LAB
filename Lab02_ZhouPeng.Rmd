@@ -1,0 +1,343 @@
+---
+title: "Lab02_ZhouPeng.Rmd"
+author: "Yongyi(Sophie) Peng & Tianyi Zhou"
+output: html_document
+Date: 9/23/2019
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+##Read in the data set
+```{r}
+badDrivers <- read.csv("./data/bad-drivers.csv")
+
+```
+
+####Rename the variable name
+```{r, message= FALSE}
+names(badDrivers) <- c("State", "Number_of_driver", "Pct_speeding","Pct_alcohol", "Pct_not_distracted", "Pct_not_previous","CIP", "Losses_incurred")
+print(badDrivers)
+```
+
+##Exploratory data analysis
+
+####draftsman plot
+```{r, echo=FALSE,message=FALSE}
+plot(badDrivers)
+require(GGally)
+library(GGally)
+ggpairs(badDrivers, cardinality_threshold = 51)
+```
+
+####Question: Present a brief description of trends you see in the data, and how they may influence fitting a model.
+From the draftsman plot, we observed a moderately strong positive linear relationship between Car_insurance and Losses_incurred. 
+Since these two variables are moderately correlated, the model fit might be affected (will be more accurate) after we include the above covariation as an explanatory variable in regression.
+
+
+
+####Plot the estimated distribution of Percentage of Drivers Involved in Fatal Collisions who were speeding using a histogram.
+```{r}
+hist(badDrivers$Pct_speeding)
+
+```
+
+##Regression analysis
+The target variable for our regression models is CIP.
+The covariated variable we feel is most related to Car Insurance Premiums is Losses incurred by insurance companies for collisions per insured driver ($) (Losses_incurred).
+
+####Simple Linear Regression Model（Reg01）
+CIP = Beta0 + Beta1*Losses_incurred + error
+```{r}
+Reg01<- lm(data=badDrivers, CIP~Losses_incurred)
+summary(Reg01)
+```
+The predicted equation for CIP is CIP = 285.3251 + 4.4733 * Losses_incurred. This can also be written as the predicted CIP = y_hat = 285.3251 + 4.4733 * X
+
+```{r, echo=FALSE,message=FALSE}
+plot(badDrivers$Losses_incurred, badDrivers$CIP, xlab = 'Losses_incurred', ylab = 'CIP')
+
+```
+
+
+```{r, echo=FALSE,message=FALSE}
+plot(Reg01)
+
+```
+The QQ plot of the simple linear regression model is not bad. 
+
+
+
+
+
+####Multiple Linear Regression Model（Reg02)
+```{r}
+Reg02<- lm(data=badDrivers, CIP~Losses_incurred+Number_of_driver)
+summary(Reg02)
+```
+The predicted equation for CIP is CIP = 412.7244 + 4.4274 * Losses_incurred + (-7.6774) * Number_of_driver. This can also be written as the predicted CIP = y_hat =  412.7244 + 4.4274 * X1 + (-7.6774) * X2.
+
+```{r, echo=FALSE,message=FALSE}
+plot(Reg02)
+
+```
+The QQ plot of multiple linear regression model seems ok.
+
+
+
+
+####Polynomial Regression Model（Reg03)
+```{r}
+Reg03<-lm(CIP~Losses_incurred+I(Losses_incurred^2), data = badDrivers)
+summary(Reg03)
+```
+The predicted equation for CIP is CIP = 214.040186 + 5.553480 * Losses_incurred + (-0.003958) * Losses_incurred^2. This can also be written as the predicted CIP = y_hat =  214.040186 + 5.553480 * X + (-0.003958) * X^2.
+
+```{r, echo=FALSE,message=FALSE}
+plot(Reg03)
+
+```
+The QQ plot of polynomial regression model doesn't seem very good.
+
+
+####Choice of Model and its description 
+We pick Multiple Linear Regression Model（Reg02), because it has the highest Adjusted R-squared.
+
+The predicted equation for CIP is CIP = 412.7244 + 4.4274 * Losses_incurred + (-7.6774) * Number_of_driver.  
+This can also be written as the predicted CIP = y_hat =  412.7244 + 4.4274 * X1 + (-7.6774) * X2.
+
+Number_of_driver does not significantly contribute to predicting CIP. (p-value =  0.11324)  
+Losses_incurred significantly contribute to predicting CIP. (p-value = 9.98e-07)
+  
+Holding everything else constant, one unit increase in Number_of_driver is related to 7.6774 unit decrease in CIP in a similar population.  
+Holding everything else constant, one unit increase in Losses_incurred is related to 4.4274 unit increase in CIP in a similar population.  
+With Number_of_driver = Losses_incurred = 0, CIP = 412.7244 in a similar population.
+
+The Adjusted R-squared value of multiple linear regression is higher than the multiple R-squared value of simple linear regression model. 
+
+
+##Hold-out
+
+Select and remove 10 states from the dataset. Store these 10 states in a dataset called holdOut. 
+
+Store the remaining 41 states in a dataset called training
+```{r}
+x <- badDrivers$State
+
+newStates <- sample(x, 10, replace = FALSE, prob = NULL)
+holdOut <- badDrivers[newStates,]
+training <- badDrivers[-c(newStates),]
+
+print(holdOut)
+print(training)
+```
+
+
+Re-train REG01,REG02,REG03 on training (data = holdOut)
+```{r}
+# Simple Linear Regression (REG01)
+Reg01_train<- lm(data=training, CIP~Losses_incurred)
+summary(Reg01_train)
+
+# Multiple Linear Regression (REG02)
+Reg02_train<- lm(data=training, CIP~Losses_incurred+Number_of_driver)
+summary(Reg02_train)
+
+# Polynomial Regression (REG03)
+Reg03_train<-lm(CIP~Losses_incurred+I(Losses_incurred^2), data = training)
+summary(Reg03_train)
+
+```
+
+Compute the mean-squared error (MSE) on holdOut
+```{r}
+
+MSE = function(Reg,holdOut){
+  N = nrow(holdOut)
+  return( sum((predict(Reg,holdOut)-holdOut$CIP)^2/N))
+}
+
+
+fromString2Model = function(string){
+  return(eval(parse(text=string)))
+}
+
+i <-1
+
+MSEs <- rep(0,3)
+for (Reg in c("Reg01_train","Reg02_train","Reg03_train")){
+  MSEs[i] <- MSE(fromString2Model(Reg), holdOut)
+  i=i+1
+}
+
+
+plot(MSEs, xlab="Reg", ylab="MSE", xaxt="n")
+
+lines(MSEs)
+
+axis(1, at = c(1,2,3)
+     , labels = c("SLR", "MLR","PR"))
+
+print(MSEs)
+
+```
+The MSE of simple linear regression (REG01) is 14997.02.
+The MSE of multiple linear regression (REG02) is 14286.97.
+The MSE of polynomial regression (REG03) is 15857.20.
+We will select REG02 multiple linear regression model since REG02 has the smallest mean square of error.
+
+
+
+##Cross-validation
+
+```{r}
+a <- badDrivers$State
+
+newStates1 <- sample(a, 10, replace = FALSE, prob = NULL)
+holdOut1 <- badDrivers[newStates1,]
+training1 <- badDrivers[-c(newStates1),]
+
+b <- training1$State
+
+newStates2 <- sample(b, 10, replace = FALSE, prob = NULL)
+holdOut2 <- training1[newStates2,]
+training2 <- training1[-c(newStates2),]
+
+c <- training2$State
+
+newStates3 <- sample(c, 10, replace = FALSE, prob = NULL)
+holdOut3 <- training2[newStates3,]
+training3 <- training2[-c(newStates3),]
+
+d <- training3$State
+
+newStates4 <- sample(d, 10, replace = FALSE, prob = NULL)
+holdOut4 <- training3[newStates4,]
+holdOut5 <- training3[-c(newStates4),]
+
+print(holdOut1)
+print(holdOut2)
+print(holdOut3)
+print(holdOut4)
+print(holdOut5)
+
+
+crossValResults = data.frame(3:5)
+```
+
+```{r}
+
+# Simple Linear Regression (REG01-1)
+Reg01_train1<- lm(data=holdOut1, CIP~Losses_incurred)
+summary(Reg01_train1)
+
+# Multiple Linear Regression (REG02-1)
+Reg02_train1<- lm(data=holdOut1, CIP~Losses_incurred+Number_of_driver)
+summary(Reg02_train1)
+
+# Polynomial Regression (REG03-1)
+Reg03_train1<-lm(CIP~Losses_incurred+I(Losses_incurred^2), data = holdOut1)
+summary(Reg03_train1)
+
+# Simple Linear Regression (REG01-2)
+Reg01_train2<- lm(data=holdOut2, CIP~Losses_incurred)
+summary(Reg01_train2)
+
+# Multiple Linear Regression (REG02-2)
+Reg02_train2<- lm(data=holdOut2, CIP~Losses_incurred+Number_of_driver)
+summary(Reg02_train2)
+
+# Polynomial Regression (REG03-2)
+Reg03_train2<-lm(CIP~Losses_incurred+I(Losses_incurred^2), data = holdOut2)
+summary(Reg03_train2)
+
+# Simple Linear Regression (REG01-3)
+Reg01_train3<- lm(data=holdOut3, CIP~Losses_incurred)
+summary(Reg01_train3)
+
+# Multiple Linear Regression (REG02-3)
+Reg02_train3<- lm(data=holdOut3, CIP~Losses_incurred+Number_of_driver)
+summary(Reg02_train3)
+
+# Polynomial Regression (REG03-3)
+Reg03_train3<-lm(CIP~Losses_incurred+I(Losses_incurred^2), data = holdOut3)
+summary(Reg03_train3)
+
+# Simple Linear Regression (REG01-4)
+Reg01_train4<- lm(data=holdOut4, CIP~Losses_incurred)
+summary(Reg01_train4)
+
+# Multiple Linear Regression (REG02-4)
+Reg02_train4<- lm(data=holdOut4, CIP~Losses_incurred+Number_of_driver)
+summary(Reg02_train4)
+
+# Polynomial Regression (REG03-4)
+Reg03_train4<-lm(CIP~Losses_incurred+I(Losses_incurred^2), data = holdOut4)
+summary(Reg03_train4)
+
+# Simple Linear Regression (REG01-4)
+Reg01_train5<- lm(data=holdOut5, CIP~Losses_incurred)
+summary(Reg01_train5)
+
+# Multiple Linear Regression (REG02-5)
+Reg02_train5<- lm(data=holdOut5, CIP~Losses_incurred+Number_of_driver)
+summary(Reg02_train5)
+
+# Polynomial Regression (REG03-5)
+Reg03_train5<-lm(CIP~Losses_incurred+I(Losses_incurred^2), data = holdOut5)
+summary(Reg03_train5)
+
+
+
+
+
+MSE = function(Reg,badDrivers){
+  N = 10
+  return( sum((predict(Reg,badDrivers)-badDrivers$CIP)^2/N))
+}
+
+
+fromString2Model = function(string){
+  return(eval(parse(text=string)))
+}
+
+i <-1
+
+crossValResults <- rep(0,3)
+for (Reg in c("Reg01_train1","Reg02_train1","Reg03_train1","Reg01_train2","Reg02_train2","Reg03_train2","Reg01_train3","Reg02_train3","Reg03_train3","Reg01_train4","Reg02_train4","Reg03_train4","Reg01_train5","Reg02_train5","Reg03_train5" )){
+  crossValResults[i] <- MSE(fromString2Model(Reg), holdOut)
+  i=i+1
+}
+
+
+
+plot(crossValResults, xlab="Reg", ylab="MSE", xaxt="n")
+
+lines(crossValResults)
+
+print("crossValResults")
+print(crossValResults)
+```
+```{r}
+CrossValResults<-matrix(crossValResults, nrow = 5, ncol = 3)
+colnames(CrossValResults) <- c("SLR","MLR","PR")
+print(CrossValResults)
+
+CVerror<- colSums(CrossValResults)/5
+print("     ")
+print("CVerror")
+print(CVerror)
+
+difference<- colSums(CrossValResults)-c(14997.02, 14286.97, 15857.20)
+print("difference with holdout")
+print(difference)
+```
+
+#### How does the CV error compare to the hold-out error?
+CV error is larger than the hold-out error.
+
+#### How does the Cross-validation MSE compare between your simple and multiple regression?
+It depends on the sample.
