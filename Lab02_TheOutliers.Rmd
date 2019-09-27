@@ -1,0 +1,158 @@
+---
+title: "Lab02_TheOutliers"
+author: "Stephanie, Susan, and Anamika"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+badDrivers <- read.csv("./data/bad-drivers.csv")
+
+names(badDrivers) <- c("State", "Number of Fatal Collisions", "Speeding Percentage", "Impaired Percentage", "Not Distracted Percentage", "No Previous Accidents Percentage", "Insurance Premiums", "Insurance Company Losses")
+
+badDrivers
+```
+
+##Explorartory Data Analysis 
+```{r}
+plot(badDrivers$State, badDrivers$`Insurance Premiums`)
+plot(badDrivers$`Number of Fatal Collisions`, badDrivers$`Insurance Premiums`)
+plot(badDrivers$`Speeding Percentage`, badDrivers$`Insurance Premiums`)
+plot(badDrivers$`Impaired Percentage` , badDrivers$`Insurance Premiums`)
+plot(badDrivers$`Not Distracted Percentage` , badDrivers$`Insurance Premiums`)
+plot(badDrivers$`No Previous Accidents Percentage` , badDrivers$`Insurance Premiums`)
+plot(badDrivers$`Insurance Company Losses` , badDrivers$`Insurance Premiums`)
+
+hist(badDrivers$`Speeding Percentage`, main = "Histogram of the Percentage of Drivers Who Were Speeding", xlab = "Percentage of Drivers Who Were Speeding")
+```
+From the scatterplots, we found some likely positive association of Insurance Premiums with Insurance Company Losses, No Previous Accidents Percentage, and Speeding Percentage. We expect these variables to minimize the SSE of our model and allow for a more accurate prediction of Insurance Premiums. Since we did not find a clear association with the other variables in the data set, we think that it is not appropriate to include them in a multiple linear regression model as they may underestimate or overfit the true model. Additionally, we expect there to be a close linear relationship with Insurance Premiums and Insurance Company Losses. 
+
+This would positively impact our regression because we see a higher frequency of states (more than half) with a large percentage of fatal collisions that involved drivers who were speeding.
+
+
+##Regression Analysis
+```{r}
+reg01 <- lm(badDrivers$`Insurance Premiums`~ badDrivers$`Insurance Company Losses`)
+
+reg02 <- lm(badDrivers$`Insurance Premiums` ~ badDrivers$`Insurance Company Losses` + badDrivers$`Speeding Percentage` + badDrivers$`No Previous Accidents Percentage`)
+
+reg03 <- lm(badDrivers$`Insurance Premiums` ~ poly(badDrivers$`Insurance Company Losses`,2))
+
+plot(badDrivers$`Insurance Company Losses`, badDrivers$`Insurance Premiums`)
+
+fitted <- reg01$fitted.values
+data <- stack(data.frame(fitted, badDrivers$`Insurance Premiums`))
+data <- cbind(data, x = rep(badDrivers$`Insurance Company Losses`, 2))
+require("lattice")
+xyplot(values ~ data$x, data = data, group = ind, auto.key = TRUE)
+
+summary(reg01)
+summary (reg02)
+summary (reg03)
+
+```
+
+We chose a simple linear regression model, where we use the Insurance Company Losses to help explain Insurance Premiums. There appears to be a significant positive association between the Insurance Company Losses and Insurance Premiums, meaning that when the Insurance Company Losses increases by $1, then the Insurance Premium Increases by $4.47. 
+
+
+In our multiple linear regression model, we are testing the association between the Car Insurance Premiums and Insurance Company Losses, Speeding Percentage, and No Previous Accidents Percentage. In this model, we found that the only significant variable is the Insurance Company Losses. The coefficient for Insurance Company Losses in the multiple linear regression model appears to be higher than in the simple linear regression model. This means that because we included two additional variables that are insignificant in the multiple linear regression model, the variable Insurance Company Losses is being overestimated and thus driving down the adjusted R-squared value for this model. Since the adjusted R-squared value for the simple linear regression model is larger, then it better explains the variation in the Car Insurance Premiums than the multiple linear regression model. In our multiple linear regression model, a $1 increase in the Insurance Company Losses leads to a greater increase in the Car Insurance Premiums. 
+
+##Hold-Out
+```{r}
+sample_data <- sample(seq_len(nrow(badDrivers)), size = 10)
+
+holdOut <- badDrivers[sample_data,]
+training <- badDrivers[-sample_data,]
+
+reg01_holdOut <- lm(`Insurance Premiums`~ `Insurance Company Losses`, data = training)
+
+reg02_holdOut <- lm(`Insurance Premiums` ~ `Insurance Company Losses` + `Speeding Percentage` + `No Previous Accidents Percentage`, data = training)
+
+reg03_holdOut <- lm(`Insurance Premiums` ~ poly(`Insurance Company Losses`,2), data = training)
+
+
+mse_reg01 <- mean((holdOut$`Insurance Premiums` - predict.lm(reg01_holdOut, holdOut))^2)
+mse_reg02 <- mean((holdOut$`Insurance Premiums` - predict.lm(reg02_holdOut, holdOut))^2)
+mse_reg03 <- mean((holdOut$`Insurance Premiums` - predict.lm(reg03_holdOut, holdOut))^2)
+
+mse_reg01
+mse_reg02
+mse_reg03
+```
+We would choose model 1, which is the simple linear regression model, because it has the smallest MSE. 
+
+##Cross Validation
+```{r}
+dataPieces = split(badDrivers[sample(nrow(badDrivers)),],1:5)
+
+MSES = sapply(dataPieces
+              ,function(TestData){
+                rowsOfTstData <- as.numeric(row.names(TestData)) 
+              
+                trainingData <- badDrivers[-rowsOfTstData,]
+                model_01 <- lm(`Insurance Premiums` ~ `Insurance Company Losses`, data = trainingData)
+                
+                MSE = function(model_01, TestData){
+                  N = nrow(TestData)
+                  return(sum((predict(model_01, TestData) - TestData$`Insurance Premiums`)^2)/N)
+                  }
+                return(MSE(model_01, TestData))
+})
+
+
+cvError_01 = mean(MSES)
+cat("cv_Error_01:", cvError_01, "\n")
+
+MSES_02 = sapply(dataPieces
+              ,function(TestData){
+                rowsOfTstData <- as.numeric(row.names(TestData)) 
+              
+                trainingData <- badDrivers[-rowsOfTstData,]
+                model_02 <- lm(`Insurance Premiums` ~ `Insurance Company Losses` + `Speeding Percentage` + `No Previous Accidents Percentage`, data = trainingData)
+                
+                MSE = function(model_02, TestData){
+                  N = nrow(TestData)
+                  return(sum((predict(model_02, TestData) - TestData$`Insurance Premiums`)^2)/N)
+                  }
+                return(MSE(model_02, TestData))
+})
+
+
+cvError_02 = mean(MSES_02)
+cat("cv_Error_02:", cvError_02, "\n")
+
+MSES_03 = sapply(dataPieces
+              ,function(TestData){
+                rowsOfTstData <- as.numeric(row.names(TestData)) 
+              
+                trainingData <- badDrivers[-rowsOfTstData,]
+                model_03 <- lm(`Insurance Premiums` ~ poly(`Insurance Company Losses`, 2), data = trainingData)
+                
+                MSE = function(model_03, TestData){
+                  N = nrow(TestData)
+                  return(sum((predict(model_03, TestData) - TestData$`Insurance Premiums`)^2)/N)
+                  }
+                return(MSE(model_03, TestData))
+})
+
+
+cvError_03 = mean(MSES_03)
+cat("cv_Error_03:", cvError_03, "\n")
+
+mse_01 <- function(reg01)
+mean(reg01$residuals^2)
+
+cat("mse for simple linear regression:", mse_01(reg01), "\n")
+
+mse_02 <- function(reg02)
+mean(reg02$residuals^2)
+
+cat("mse for multiple linear regression:", mse_02(reg02), "\n")
+```
+
+The CV Error is, in general, larger than the hold-out error because in cross validation you are training on all the data, whereas in hold-out you are only training on a small proportion of the data and thus it is more difficult to capture all of the error in the regression. 
+
+The CV Error is also larger than the mean square errors for both the simple linear regression and the multiple linear regression. 
