@@ -33,7 +33,7 @@ pairs(drive, gap = 0)
 ggplot(drive, aes(x = pct_speeding)) +
   geom_histogram(bins = 15)
 ```
-Premiums and losses have a positive relationship. 
+Premiums and losses have a positive relationship. State, accidents per billion miles, and percent speeding seem not to have relationships with premiums. 
 ```{r regression}
 #Simple
 reg01 <- lm(premiums ~ pct_no_previous, drive)
@@ -98,7 +98,19 @@ folds <- 5
 cross <- split(sample(1:N), 1:folds)
 
 #df
-crossValResults <- data.frame(3,5)
+crossValResults <- data.frame(matrix(NA, nrow = 5, ncol = 3))
+
+#train your model on 4 sets of data
+#test for the other set 
+
+for(i in 0:4)
+  print(i)
+  tst <- drive[cross[i]]
+  trn <- drive[-cross[i]]
+ 
+  
+  
+  
 
 ```
 
