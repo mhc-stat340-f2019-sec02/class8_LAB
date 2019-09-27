@@ -1,0 +1,181 @@
+---
+title: "Lab02_Evelyn Zhang.Rmd"
+author: "Evelyn Zhang"
+date: "9/21/2019"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Read in the data set `data/bad-drivers.csv`
+
+```{r}
+# Name your dataset, for example, `badDrivers <- read.csv("./data/bad-drivers.csv")`
+badDrivers <- read.csv("./data/bad-drivers.csv")
+# (recommended) rename the columns to shorter nicknames
+colnames(badDrivers)=c("State", "Collisions", "Speeding", "Alcohol-Impaired", "Not.Distracted", "Previous.Accidents", "CIP", "Losses")
+```
+
+## Exploratory data analysis
+
+```{r}
+# Create a draftsman plot showing all pairwise comparisons between columns in the data.
+plot(badDrivers)
+
+# Present a brief description of trends you see in the data, and how they may influence fitting a model.
+# There seems to be some relationship between Losses incurred by insurance companies for collisions per insured driver ($) and Car Insurance Premiums ($) and between Percentage Of Drivers Involved In Fatal Collisions Who Had Not Been Involved In Any Previous Accidents and Car Insurance Premiums ($). For all other variables, there seems to be no pair-wise relationships. Therefore, including every variable in the model might produce a lot of noise and inconclusive result. Losses and Percentage Involved In Any Previous Accidents are two factors we mgiht consider putting in the model of predicting CIP. 
+
+# Plot the estimated distribution of _Percentage of Drivers Involved in Fatal Collisions who were speeding_ using a histogram.
+hist(badDrivers$Speeding, 
+     main="Percentage of Drivers Involved in Fatal Collisions who were speeding", 
+     xlab="Percentage of Drivers Involved in Fatal Collisions", 
+     col="orange",
+     xlim=c(0,60),
+     las=1, 
+     breaks=10)
+
+#If you include the above covariate as an explanatory variable in your regression (part of the X), will the distribution impact your model fit?
+# No, the distribution impact your model fit  because our model is a conditional probability of Y given X. The distribution of X variable does not matter. 
+
+```
+
+## Regression analysis
+```{r}
+#The target variable for our regression models is `Car Insurance Premiums (CIP)`, measured in dollars. Pick a covariate you feel is most related to Car Insurance Premiums (I'll call this `M` for most related)
+# The variable I pick is Losses incurred by insurance companies for collisions per insured driver ($)
+
+#Fit a simple linear regression `(lm)` model that related **CIP** to **M** and save this model as `reg01`. 
+reg01 <- lm(badDrivers$CIP ~ badDrivers$Losses, data=badDrivers)
+summary(reg01)
+
+#Fit a multiple linear regression model `(lm)` that includes **M** and save this as `reg02`.
+reg02 <- lm(badDrivers$CIP ~ badDrivers$Losses + badDrivers$Previous.Accidents + badDrivers$Speeding, data=badDrivers)
+summary(reg02)
+
+#Fit a polynomial regression model `(lm)` relating **CIP** to **M** and save this as `reg03`.
+reg03 <- lm(badDrivers$CIP ~ badDrivers$Losses + I(badDrivers$Losses^2), data=badDrivers)
+summary(reg03)
+
+# Pick a model from REG01, REG02, and REG03. Plot **M** by **CIP**, and overlay the chosen model's fitted values.
+# The model I pick is REG01.
+plot(badDrivers$Losses, badDrivers$CIP
+     ,xlab="Losses incurred by insurance companies for collisions per insured driver"
+     ,ylab="Car Insurance Premiums"
+     ,tck=0.02
+)
+
+minX <- min(badDrivers$Losses)
+maxX <- max(badDrivers$Losses)
+
+betas <- coef(reg01)
+beta0 <- betas[1]
+beta1 <- betas[2]
+
+xVals <- seq(minX,maxX,0.01)
+linearYPredictions <- beta0 + beta1*xVals
+lines(xVals,linearYPredictions,col='red')
+
+# Describe your model. Do all the variables significantly contribute to predicting CIP? Interpret the coefficients, their direction (positive or negative) and how they relate to CIP.
+# Not all the variables significantly contribute to predicting CIP. The high p-values for variables including Percentage.Of.Drivers.Involved.In.Fatal.Collisions.Who.Had.Not.Been.Involved.In.Any.Previous.Accidents and Percentage.Of.Drivers.Involved.In.Fatal.Collisions.Who.Were.Speeding show that the coefficients of these variables are not statistically distinguishable from zero. Losses incurred by insurance companies for collisions per insured driver is positively correlated with CIP, given by a beta1 of 4.4733. This means that for every $1 increase in Losses incurred by insurance companies for collisions per insured driver, the CIP is likely to rise $4.47. P-value is 1.04e-06 which indicates that this relationship is extremely likely to exist.  
+
+# How does your multiple regression model compare the your simple linear regression, and how would communicate these results to an audience?
+# Adjusted R-squared for multiple regression is lower than simple linear regression, indicating a worse performance of the multiple regression model. In multiple regression model, the relationships between CIP and other variables are not statistically significant. Therefore, the other variables should not be included in the model. 
+
+```
+
+## Hold-out
+```{r}
+# Randomly select, and remove, 10 states from the training set. Store these 10 states in a dataset called `holdOut` and remaining 41 states in a dataset called `training`.
+holdOutRows <- sample(nrow(badDrivers), 10, replace = FALSE, prob = NULL) 
+holdOut <- badDrivers[holdOutRows, ]
+training <- badDrivers[-holdOutRows, ]
+
+#Re-train REG01,REG02,REG03 on `training`
+#simple linear regression
+reg01 <- lm(CIP ~ Losses, data=training)
+summary(reg01)
+#multiple linear regression
+reg02 <- lm(CIP ~ Losses + Previous.Accidents + Speeding, data=training)
+summary(reg02)
+#polynomial regression
+reg03 <- lm(CIP ~ Losses + I(Losses^2), data=training)
+summary(reg03)
+
+
+#For REG01, 02, and 03, compute the mean-squared error (MSE) on `holdOut`
+MSE = function(model, data){
+        N = nrow(data)
+        return(sum((predict(model, newdata = data) - data$CIP)^2)/N)
+}
+
+fromString2Model = function(string){
+        return(eval(parse(text=string)))
+}
+
+i<-1
+MSEs <- rep(0,3)
+for (model in c("reg01","reg02","reg03")){
+        MSEs[i] <- MSE(fromString2Model(model), holdOut)
+        i=i+1
+}
+
+MSEs
+
+# Which model would you select and why?
+# I will select REG01 because it gives the lowest MSE for hold-out data.  
+```
+
+
+## Cross-validation
+```{r}
+# For REG01, REG02, REG03: Split your data into 5 training/testing sets (note, one dataset will have 11 observations)
+K = 5
+dataPieces = split(badDrivers[sample(nrow(badDrivers)),], 1:5)
+
+# Create an empty data.frame called `crossValResults` that has 3 columns (one for each model) and 5 rows (one for each test MSE)
+crossValResults <- data.frame(matrix(4, nrow = 5, ncol = 3)) 
+
+# Program a for loop 
+for (i in 1:5) {
+        
+        holdOutRows <- as.numeric(row.names(dataPieces[[i]]))
+        
+        holdOut <- badDrivers[holdOutRows, ]
+        training <- badDrivers[-holdOutRows, ]
+        
+        N = nrow(holdOut)
+        
+        #*trains* your model on 4 pieces of the data, *tests*, or makes predictions, on the "held-out" dataset, *computes* the MSE on the "held-out" dataset, *stores* the test MSE in `crossValResults`. 
+        
+        #simple linear regression
+        reg01 <- lm(CIP ~ Losses, data=training)
+        crossValResults[i, 1] <- sum((predict(reg01, holdOut) - holdOut$CIP)^2)/N
+        
+        #multiple linear regression
+        reg02 <- lm(CIP ~ Losses + Previous.Accidents + Speeding, data=training)
+        crossValResults[i, 2] <- sum((predict(reg02, holdOut) - holdOut$CIP)^2)/N
+        
+        #polynomial regression
+        reg03 <- lm(CIP ~ Losses + I(Losses^2), data=training)
+        crossValResults[i, 3] <- sum((predict(reg03, holdOut) - holdOut$CIP)^2)/N
+}
+
+crossValResults 
+
+# Compute the CV error for your regression models, the MSE averaged over each test set.
+cvErrorReg01 = mean(crossValResults[ ,1])
+cvErrorReg02 = mean(crossValResults[ ,2])
+cvErrorReg03 = mean(crossValResults[ ,3])
+
+# How does the CV error compare to the hold-out error?
+cvErrorReg01
+cvErrorReg02
+cvErrorReg03
+# The CV errors are higher than the hold-out error. However, it could be lower because the previous hold-out error is just one instance of the split. The CV error is an average of 5 splits. 
+
+# How does the Cross-validation MSE compare between your simple and multiple regression?
+# CV error is lower for simple regression. 
+
+```
