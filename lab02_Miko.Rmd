@@ -1,0 +1,184 @@
+---
+title: "LAB02_miko"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(ggplot2)
+library(GGally)
+library(dplyr)
+library(caret)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r}
+badDrivers <- read.csv("./data/bad-drivers.csv")
+head(badDrivers)
+names(badDrivers)[2]<-"numDriver"
+names(badDrivers)[3]<-"speed"
+names(badDrivers)[4]<-"alcohol"
+names(badDrivers)[5]<-"nodistract"
+names(badDrivers)[6]<-"never"
+names(badDrivers)[7]<-"cip"
+names(badDrivers)[8]<-"losscip"
+names(badDrivers)
+```
+Part1 Exploratory data analysis
+
+Questions:
+Create a draftsman plot showing all pairwise comparisons between columns in the data.
+Present a brief description of trends you see in the data, and how they may influence fitting a model.
+Plot the estimated distribution of Percentage of Drivers Involved in Fatal Collisions who were speeding using a histogram.
+If you include the above covariate as an explanatory variable in your regression (part of the X), will the distribution impact your model fit?
+
+
+
+```{r}
+vars_to_use<- c("numDriver","speed","alcohol","nodistract","never","cip","losscip")
+ggpairs(badDrivers %>% select(vars_to_use))
+
+
+```
+#description
+
+#Plot the estimated distribution of Percentage of Drivers Involved in Fatal Collisions who were speeding using a histogram.
+```{r}
+ggplot(data=badDrivers,mapping = aes(x=speed)) + geom_histogram()
+
+
+
+```
+#If you include the above covariate as an explanatory variable in your regression (part of the X), will the distribution impact your model fit?
+
+
+Part 2 Regression
+The target variable- Car Insurance Premiums (CIP),  in dollars.
+Pick a covariate you feel is most related to Car Insurance Premiums (I'll call this M for most related)
+Fit a simple linear regression (lm) model that related CIP to M and save this model as reg01.
+Fit a multiple linear regression model (lm) that includes M and save this as reg02.
+Fit a polynomial regression model (lm) relating CIP to M and save this as reg03.
+Pick a model from REG01, REG02, and REG03. Plot M by CIP, and overlay the chosen model's fitted values.
+
+
+1.we pick losscip and named it M
+```{r}
+##reg01
+reg01<-lm(cip~losscip, data=badDrivers)
+print(reg01)
+##reg02
+reg02<-lm(cip ~ losscip + alcohol + speed, data=badDrivers)
+print(reg02)
+#reg03
+reg03<-lm(cip ~ losscip+I(losscip^2), data=badDrivers)
+print(reg03)
+```
+2. I pick model reg01
+```{r}
+plot(badDrivers$losscip, badDrivers$cip
+     ,xlab="losscip"
+     ,ylab="cip"
+     ,tck=0.02
+     )
+
+betas<-coef(reg01)
+beta0<-betas[1]
+beta1<-betas[2]
+
+xVals<-seq(min(badDrivers$losscip),max(badDrivers$cip),0.01)
+yPredictions<-beta0+beta1*xVals
+print(length(yPredictions))
+print(length(xVals))
+lines(xVals, yPredictions, col='red')
+``` 
+
+#Describe the model
+3.Describe your model. Do all the variables significantly contribute to predicting CIP? Interpret the coefficients, their direction (positive or negative) and how they relate to CIP.
+How does your multiple regression model compare the your simple linear regression, and how would communicate these results to an audience?
+
+Part3 Hold-out
+Randomly select, and remove, 10 states from the training set. Store these 10 states in a dataset called holdOut and remaining 41 states in a dataset called training.
+badDrivers[c(1,2,3),] selects the first, second, and third observation from your dataset.
+Take a look at the sample command in R
+set.seed(20)
+train_val_inds<-caret::createDataPartition(
+  y=badDrivers$cip,
+  p=0.8
+  
+)
+driver_train_val<- badDrivers%>%slice(train_val_inds[[1]])
+driver_test_val<- badDrivers %>%slice(-train_val_inds[[1]])
+train_val_inds<-caret::createDataPartition(
+  
+  y=driver_train_val$cip,
+  p=0.8
+)
+
+driver_train<-driver_train_val%>%slice(train_val_inds[[1]])
+driver_val<-driver_train_val%>%slice(-train_val_inds[[1]])
+
+train_val_mse<-data.frame
+{
+  
+}
+```{r}
+data_10 <- floor(0.20 *nrow(badDrivers))
+dataPieces <-sample(seq_len(nrow(badDrivers)), size = data_10)
+
+holdOut <-badDrivers[dataPieces, ]
+training <-badDrivers[-dataPieces, ]
+badDrivers[c(1,2,3),]
+reg01_tr<-lm(cip~losscip, data=training)
+reg02_tr<-lm(cip ~ losscip + alcohol + speed, data=training)
+reg03_tr<-lm(cip ~ losscip+I(losscip^2), data=training)
+
+MSE_1 = function(model, training)
+{
+  N=nrow(training)
+  return(sum((predict(model,training)-training$cip)^2)/N)}
+s2Model=function(string){return(eval(parse(text=string)))}
+
+i<-1
+testMSEs <- rep(0,3)
+for(model in c("reg01_tr","reg02_tr","reg03_tr"))
+{
+  testMSEs[i]<-MSE_1(s2Model(model), holdOut)
+  i=i+1
+}
+head(testMSEs)
+
+```
+#which one you will choose
+I will choose the first one since it has the smallest test MSE and it is a model with better fit to the real data and less deviation.
+
+For REG01, REG02, REG03
+Split your data into 5 training/testing sets (note, one dataset will have 11 observations)
+
+Create an empty data.frame called crossValResults that has 3 columns (one for each model) and 5 rows (one for each test MSE)
+
+```{r}
+
+
+
+```
+
+Program a for loop that
+trains your model on 4 pieces of the data
+tests, or makes predictions, on the "held-out" dataset.
+computes the MSE on the "held-out" dataset
+stores the test MSE in crossValResults.
+When completed, you should have computed 15 MSEs, 5 for every regression model stored as columns in a data frame.
+Compute the CV error for your regression models, the MSE averaged over each test set.
+How does the CV error compare to the hold-out error?
+How does the Cross-validation MSE compare between your simple and multiple regression?
+
+
+
+reference:
+https://datascienceplus.com/create-new-variable-in-r/
+
