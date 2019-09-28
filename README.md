@@ -54,10 +54,10 @@ You must submit your pull request by 2019-09-27 at 23:59:59.
     * Split your data into 5 training/testing sets (note, one dataset will have 11 observations)
 	* Create an empty data.frame called `crossValResults` that has 3 columns (one for each model) and 5 rows (one for each test MSE)
     * Program a for loop that
-	      * *trains* your model on 4 pieces of the data
-		  * *tests*, or makes predictions, on the "held-out" dataset. 
-		  * *computes* the MSE on the "held-out" dataset
-		  * *stores* the test MSE in `crossValResults`. 
+       * trains your model on 4 pieces of the data
+       * tests, or makes predictions, on the "held-out" dataset. 
+       * computes the MSE on the "held-out" dataset
+       * stores the test MSE in `crossValResults`. 
     * When completed, you should have computed 15 MSEs, 5 for every regression model stored as columns in a data frame.
     * Compute the CV error for your regression models, the MSE averaged over each test set.
 	* How does the CV error compare to the hold-out error?

@@ -1,0 +1,157 @@
+---
+title: "LAB_Class8"
+Name: Amaya Choksi
+output: html_document
+---
+```{r}
+library(readr)
+library(dplyr)
+library(ggplot2)
+library(ModelMetrics)
+```
+
+## Exploratory data analysis:
+
+```{r}
+
+badDrivers <- read.csv("badDrivers.csv")
+pairs(badDrivers[,1:4], pch = 19)
+
+
+```
+
+
+
+The data points are dispersed and there seems to be no identifiable trends in the data.
+
+```{r}
+
+ggplot(badDrivers, aes(x=AlcoholCols)) + geom_histogram()
+
+```
+
+
+The histrogram is bell shaped and appears to be evenly distributed. In this case, the spread of the data will not affect our model 
+
+
+## Regression analysis:
+
+
+```{r cars}
+reg01 <- lm(CarPremiums~AlcoholCols,data=badDrivers)
+summary(reg01)
+
+reg02<- lm(CarPremiums~AlcoholCols + SpeedingCols, data=badDrivers)
+summary(reg02)
+
+badDrivers1 = badDrivers
+badDrivers1$AlcoholCols=badDrivers1$AlcoholCols^2
+badDrivers1$AlcoholCols=badDrivers1$AlcoholCols^3
+badDrivers1$AlcoholCols=badDrivers1$AlcoholCols^4
+reg03 <- lm(formula = badDrivers1$CarPremiums ~ badDrivers1$AlcoholCols+ I(badDrivers1$AlcoholCols^2) + 
+    I(badDrivers1$AlcoholCols^3) +   I(badDrivers1$AlcoholCols^4))
+summary(reg03)
+
+ggplot(badDrivers, aes(x= SpeedingCols + AlcoholCols, y=CarPremiums)) + geom_point(color = 'maroon') + geom_smooth(method=lm) + ggtitle('Multiple Linear Regression Model')
+
+ggplot(badDrivers, aes(x= AlcoholCols, y=CarPremiums)) + geom_point(color = 'maroon') + geom_smooth(method=lm) + ggtitle('Simple Linear Regression Model')
+```
+
+
+
+The coefficient of Alochol Collisions is negative at -1.2, which means when the number of collisions due to alchol increases, car premiums decreaseThe coefficient of Speeding Collisions is slightly positive at 0.9, which means they are positvely correlated and one increases when the other increases. The slope of the fitted line has a slight upward slant
+
+## Hold-out:
+
+```{r}
+training <- read.csv("training.csv")
+holdOut <- read.csv("holdOut.csv")
+
+Reg01t <- lm(CarPremiums~AlcoholCols,data=training)
+summary(Reg01t)
+
+
+Reg02t <- lm(CarPremiums~ SpeedingCols+AlcoholCols,data=training)
+summary(Reg02t)
+
+
+training1=training
+training1$AlcoholCols=training1$AlcoholCols^2
+training1$AlcoholCols=training1$AlcoholCols^3
+training1$AlcoholCols=training1$AlcoholCols^4
+Reg03t <- lm(formula = training1$CarPremiums ~ training1$AlcoholCols + I(training1$AlcoholCols^2) + 
+    I(training1$AlcoholCols^3) +   I(training1$AlcoholCols^4))
+summary(Reg03t)
+
+Pred01t <- predict(Reg01t, holdOut, type = 'response')
+ mse(holdOut$CarPremiums, Pred01t)
+
+Pred02t <- predict(Reg02t, holdOut, type = 'response')
+ mse(holdOut$CarPremiums, Pred02t)
+ 
+Pred03t <- predict(Reg03t, holdOut, type = 'response')
+ mse(holdOut$CarPremiums, Pred03t)
+ 
+```
+
+
+
+I would select the simple regresssion model becuase it has the lowest mean square error from the three models. Smaller MSE generally indicates a better estimate, at the data points in question. 
+
+
+##Cross Validation
+```{r}
+trainingds1 <- read.csv("trainingds1.csv")
+trainingds2 <- read.csv("trainingds2.csv")
+trainingds3 <- read.csv("trainingds3.csv")
+trainingds4 <- read.csv("trainingds4.csv")
+trainingds5 <- read.csv("trainingds5.csv")
+
+data.pieces <- list(trainingds1,trainingds2,trainingds3,trainingds4,trainingds5)
+crossValResults <- matrix(ncol = 3, nrow = 5)
+for (k in 1:5){
+  
+  test = data.pieces[[k]]
+  everythingExceptTestSet = setdiff(1:5,k)
+  training = do.call(rbind,data.pieces[everythingExceptTestSet])
+  
+  model1 <-lm(CarPremiums~AlcoholCols,data=training)
+  model2 <-lm(CarPremiums~AlcoholCols + SpeedingCols, data=training)
+  model3 <-lm(formula = training$CarPremiums ~ training$AlcoholCols + I(training$AlcoholCols^2) + I(training$AlcoholCols^3) + I(training$AlcoholCols^4))
+  
+  
+  
+  Predict1 <- predict(model1, test, type = 'response')
+  print(Predict1)
+  mse1<- mse(test$CarPremiums, Predict1)
+  
+  Predict2 <- predict(model2, test, type = 'response')
+  mse2 <- mse(test$CarPremiums, Predict2)
+  
+  Predict3 <- predict(model3, test, type = 'response')
+  mse3 <- mse(test$CarPremiums, Predict3)
+  
+  crossValResults[k,1] = mse1
+  crossValResults[k,2] = mse2
+  crossValResults[k,3] = mse3
+
+  
+  
+}
+ print(crossValResults)
+
+CV1 = ((43801.66 +43127.35 +18369.70 +44662.64 +23522.95)/5)
+CV2 = ((43467.74+ 43596.11 +18382.06 +46162.55 +23861.95)/5)
+CV3 = ((45801.25 + 41668.31 +22015.84 + 45319.29 + 25064.33)/5)
+
+print(CV1)
+print(CV2)
+print(CV3)
+  
+
+
+
+```
+
+The CV errors are not that different from eachother. This tell us that the simple linear regression model is enough to predict car premiums.
+

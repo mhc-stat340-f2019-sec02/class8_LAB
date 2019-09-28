@@ -1,0 +1,214 @@
+Project: Lab02
+Name: Kaiwen Lu
+
+#Read in the dataset 
+```{r}
+library(data.table)
+library(dplyr) # functions like summarize
+library(ggplot2) # for making plots
+library(readr)
+library(gridExtra)
+library(GGally)
+#Read in the dataset 
+badDrivers <- read.csv("./data/bad-drivers.csv")
+#Rename the columns 
+setnames(badDrivers, 
+         old=c("Percentage.Of.Drivers.Involved.In.Fatal.Collisions.Who.Were.Speeding","Percentage.Of.Drivers.Involved.In.Fatal.Collisions.Who.Were.Alcohol.Impaired","Percentage.Of.Drivers.Involved.In.Fatal.Collisions.Who.Were.Not.Distracted","Percentage.Of.Drivers.Involved.In.Fatal.Collisions.Who.Had.Not.Been.Involved.In.Any.Previous.Accidents"), 
+         new=c("Pct.of.Speeding", "Pct.of.Alcohol.Impaired","Pct.of.Not.Distracted","Pct.of.had.not.been.involved.in.any.previous.accidents"))
+
+badDrivers<-badDrivers %>% select(Pct.of.Speeding, 
+                                  Pct.of.Alcohol.Impaired,
+                              Pct.of.Not.Distracted,
+                              Pct.of.had.not.been.involved.in.any.previous.accidents,
+                              Losses.incurred.by.insurance.companies.for.collisions.per.insured.driver....,
+                              Number.of.drivers.involved.in.fatal.collisions.per.billion.miles,
+                              Car.Insurance.Premiums....)
+```
+
+#Exploratory Data Analysis 
+```{r}
+# Create a draftsman plot showing all pairwise comparisons between columns in the data.
+ggpairs(badDrivers)
+```
+#Present a brief description of trends you see in the data, and how they may influence fitting a model.
+There are potential outliers in percentage of drivers that had not been involved in any accidents, losses incurred by insurance companies for collisions. Those observations could potentially influence our inferences. 
+There is non-constant standard deviation between percentage of drivers that had not been involved in any accidents,car insuance premium and number of drivers involved in fatal collisions.
+There appears to be a non-linear relationship between losses incurred by insurance companies for collisions and car insurance premium.
+
+#Plot the estimated distribution of _Percentage of Drivers Involved in Fatal Collisions who were speeding_ using a histogram.
+```{r}
+ggplot(data=badDrivers, mapping=aes(x=Pct.of.Speeding))+geom_histogram()
+```
+
+
+#If you include the above covariate as an explanatory variable in your regression (part of the X), will the distribution impact your model fit?
+Yes, because the percentage of Drivers Involved in Fatal Collisions who were speeding does not follow the normal distribution. 
+
+**Regression analysis**
+  * The target variable for our regression models is `Car Insurance Premiums (CIP)`, measured in dollars.
+  * Pick a covariate you feel is most related to Car Insurance Premiums (I'll call this `M` for most related)
+  * Fit a simple linear regression `(lm)` model that related **CIP** to **M** and save this model as `reg01`. 
+  * Fit a multiple linear regression model `(lm)` that includes **M** and save this as `reg02`.
+  * Fit a polynomial regression model `(lm)` relating **CIP** to **M** and save this as `reg03`.
+  * Pick a model from REG01, REG02, and REG03. Plot **M** by **CIP**, and overlay the chosen model's fitted values.
+  
+```{r}
+#Simple Linear Regression model 
+reg01<-lm(Car.Insurance.Premiums....~Losses.incurred.by.insurance.companies.for.collisions.per.insured.driver....,data=badDrivers)
+summary(reg01)
+```
+  
+```{r}
+#Multiple linear regression model 
+reg02<-lm(Car.Insurance.Premiums....~
+Losses.incurred.by.insurance.companies.for.collisions.per.insured.driver.... 
++Pct.of.Speeding
++Pct.of.Alcohol.Impaired
++Pct.of.Not.Distracted
++Pct.of.had.not.been.involved.in.any.previous.accidents
++Number.of.drivers.involved.in.fatal.collisions.per.billion.miles, data=badDrivers)
+summary(reg02)
+```
+
+```{r}
+#polynomial regression model 
+reg03<- lm(Car.Insurance.Premiums.... ~  poly(Losses.incurred.by.insurance.companies.for.collisions.per.insured.driver...., degree = 2, raw = TRUE), data = badDrivers)
+summary(reg03)
+```
+
+```{r}
+#Plot Reg01
+ggplot(data=badDrivers, mapping=aes(x=Losses.incurred.by.insurance.companies.for.collisions.per.insured.driver...., y=Car.Insurance.Premiums....))+geom_point()+theme_bw()+geom_smooth(method = "lm", se = F) 
+
+```
+*Describe your model. Do all the variables significantly contribute to predicting **CIP**? Interpret the coefficients, their direction (positive or negative) and how they relate to **CIP**.
+Losses.incurred.by.insurance.companies.for.collisions.per.insured.driver, Pct.of.Alcohol.Impaired,Pct.of.had.not.been.involved.in.any.previous.accidents and Number.of.drivers.involved.in.fatal.collisions.per.billion.miles significantly contribute to predicting CIP since they have a larger coefficients. 
+Percentage.Of.Drivers.Involved.In.Fatal.Collisions.Who.Were.Speeding","Percentage.Of.Drivers.Involved.In.Fatal.Collisions.Who.Were.Alcohol.Impaired","Percentage.Of.Drivers.Involved.In.Fatal.Collisions.Who.Were.Not.Distracted","Percentage.Of.Drivers.Involved.In.Fatal.Collisions.Who.Had.Not.Been.Involved.In.Any.Previous.Accidents"and Losses.incurred.by.insurance.companies.for.collisions.per.insured.driver are all positively correlated with CIP, while Number.of.drivers.involved.in.fatal.collisions.per.billion.miles is negatively correlated with CIP. 
+For each unit increase in each variable, CIP increases by the amount of the coefficients units. 
+
+
+*How does your multiple regression model compare the your simple linear regression, and how would communicate these results to an audience*?  
+The coefficient of Losses.incurred.by.insurance.companies.for.collisions.per.insured.driver in both models are similar, therefore it indicates that this variable has a strong association with the car insurance premiums even after accounting for the effects of other variables. 
+
+
+**Hold-out**
+  *Randomly select, and remove, 10 states from the training set. Store these 10 states in a dataset called `holdOut` and remaining 41 states in a dataset called `training`.*
+```{r}
+holdOut<-badDrivers[sample(nrow(badDrivers), 10), ]
+training <- badDrivers[-sample(1:nrow(badDrivers), 10), ]
+badDrivers[c(1,2,3),]
+```
+ *Re-train REG01,REG02,REG03 on `training`*
+ *For REG01, 02, and 03, compute the mean-squared error (MSE) on `holdOut`*
+```{r}
+#Simple Linear Regression model 
+reg01<-lm(Car.Insurance.Premiums....~Losses.incurred.by.insurance.companies.for.collisions.per.insured.driver....,data=training)
+summary(reg01)
+holdOut1<-mean((holdOut$Car.Insurance.Premiums.... - predict.lm(reg01, holdOut)) ^ 2)
+
+#Multiple linear regression model 
+reg02<-lm(Car.Insurance.Premiums....~
+Losses.incurred.by.insurance.companies.for.collisions.per.insured.driver.... 
++Pct.of.Speeding
++Pct.of.Alcohol.Impaired
++Pct.of.Not.Distracted
++Pct.of.had.not.been.involved.in.any.previous.accidents
++Number.of.drivers.involved.in.fatal.collisions.per.billion.miles, data=training)
+summary(reg02)
+holdOut2<-mean((holdOut$Car.Insurance.Premiums.... - predict.lm(reg02, holdOut)) ^ 2)
+
+#polynomial regression model 
+reg03<- lm(Car.Insurance.Premiums.... ~  poly(Losses.incurred.by.insurance.companies.for.collisions.per.insured.driver...., degree = 2, raw = TRUE), data = training)
+summary(reg03)
+holdOut3<-mean((holdOut$Car.Insurance.Premiums.... - predict.lm(reg03, holdOut)) ^ 2)
+```
+
+ 
+*Which model would you select and why?*
+ I would select multiple regression model because it has the smallest mean squared error. 
+  
+* **Cross-validation**
+  * For REG01, REG02, REG03
+    * Split your data into 5 training/testing sets (note, one dataset will have 11 observations)
+	* Create an empty data.frame called `crossValResults` that has 3 columns (one for each model) and 5 rows (one for each test MSE)
+ * Program a for loop that
+	      * *trains* your model on 4 pieces of the data
+		  * *tests*, or makes predictions, on the "held-out" dataset. 
+		  * *computes* the MSE on the "held-out" dataset
+		  * *stores* the test MSE in `crossValResults`. 
+```{r}
+set.seed(10)
+datasets<-split(badDrivers, sample(rep(1:5, 10)))
+crossValResults<-data.frame(matrix(NA, ncol = 3, nrow = 5) )
+
+crossValResults_1 = sapply(datasets,
+                function(TestData){
+                  rowsOfTstData <- as.numeric(row.names(TestData))
+                  trainingData <- badDrivers[-rowsOfTstData,]
+                  model <- lm(Car.Insurance.Premiums....~Losses.incurred.by.insurance.companies.for.collisions.per.insured.driver...., data=trainingData)
+                  
+                  N = length(TestData)
+                  MSE = sum((predict(model,TestData) - TestData$Car.Insurance.Premiums...)^2)/N
+                  return(MSE)
+   })
+print(crossValResults_1)
+
+crossValResults_2 = sapply(datasets,
+                function(TestData){
+                  rowsOfTstData <- as.numeric(row.names(TestData))
+                  trainingData <- badDrivers[-rowsOfTstData,]
+                  model <- lm(Car.Insurance.Premiums.... ~  poly(Losses.incurred.by.insurance.companies.for.collisions.per.insured.driver...., degree = 2, raw = TRUE), data = training)
+                  
+                  N = length(TestData)
+                  MSE = sum((predict(model,TestData) - TestData$Car.Insurance.Premiums...)^2)/N
+                  return(MSE)
+   })
+print(crossValResults_2)
+
+crossValResults_3 = sapply(datasets,
+                function(TestData){
+                  rowsOfTstData <- as.numeric(row.names(TestData))
+                  trainingData <- badDrivers[-rowsOfTstData,]
+                  model <- lm(Car.Insurance.Premiums.... ~  poly(Losses.incurred.by.insurance.companies.for.collisions.per.insured.driver...., degree = 2, raw = TRUE), data = training)
+                  
+                  N = length(TestData)
+                  MSE = sum((predict(model,TestData) - TestData$Car.Insurance.Premiums...)^2)/N
+                  return(MSE)
+   })
+print(crossValResults_3)
+
+
+crossValResults[1]=crossValResults_1
+crossValResults[2]=crossValResults_2
+crossValResults[3]=crossValResults_3
+print(crossValResults)  
+
+cvError1=mean(crossValResults_1)
+print(cvError1)
+print(holdOut1)
+cvError2=mean(crossValResults_2)
+print(cvError2)
+print(holdOut2)
+cvError3=mean(crossValResults_3)
+print(cvError3)
+print(holdOut3)
+         
+
+```
+
+*How does the CV error compare to the hold-out error?*
+The CV error of all three models are smaller than the hold-out error. 
+*How does the Cross-validation MSE compare between your simple and multiple regression?*
+The CV error for simple regression is larger than the CV error for multiple regression.
+
+
+
+#Report:
+  The badDrivers dataset is on driving incidents collected for all 52 states in the United states.In this lab we will explore whether or not state-level factors contribute to Car insurance premiums.
+  I will experiment the data with the simple linear regression on the variable Losses.incurred.by.insurance.companies.for.collisions.per.insured.driver...., multiple regression with all explanatory variables and polynimial regression model. 
+  I will use the hold-out method and cross_validation method to decide which model is the best.
+  In the hold-out model, I will ramdomly select, and remove, 10 states from the training set. Store these 10 states in a dataset called `holdOut` and remaining 41 states in a dataset called `training`.Then I'll re-train REG01,REG02,REG03 on `training`data and compute the mean-squared error (MSE) on 'holdOut'. The model with the smallest mean-squared error is the best model. 
+  In the cross_validation method, I'll split the data into 5 training/testing sets,with 11 observations in each dataset and store them into a data.frame called `crossValResults`. Then I'll compute the cross validation mean squared error for three models separately on the testing datasets by averaging the MSE over each test set. The model with the smallest cross-validation mean-squared error is the best model. 
+  
+  
+  

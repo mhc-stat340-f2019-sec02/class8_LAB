@@ -196,6 +196,7 @@ We will select REG02 multiple linear regression model since REG02 has the smalle
 ##Cross-validation
 
 ```{r}
+
 dataset1 <- badDrivers$State
 
 newStates1 <- sample(dataset1, 10, replace = FALSE, prob = NULL)
@@ -217,6 +218,7 @@ training3 <- training2[-c(newStates3),]
 dataset4 <- training3$State
 
 newStates4 <- sample(dataset4, 10, replace = FALSE, prob = NULL)
+
 holdOut4 <- training3[newStates4,]
 holdOut5 <- training3[-c(newStates4),]
 
@@ -229,7 +231,6 @@ print(holdOut5)
 
 crossValResults = data.frame(3:5)
 ```
-
 
 ```{r}
 

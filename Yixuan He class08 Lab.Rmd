@@ -1,0 +1,203 @@
+---
+title: "class08_Lab Yixuan He"
+output:
+  pdf_document: default
+  html_document: default
+---
+## Description
+
+Data on driving incidents was collected for all 52 states in the United states.
+This lab will explore whether or not state-level factors contribute to Car insurance premiums.
+The original goal of this dataset was to determine which state had the worst drivers.
+
+<p align="center">
+  <img width="320" height="200" src="https://github.com/mhc-stat340-f2019-sec02/class8_LAB/blob/master/featured.jpeg">
+</p>
+
+## Organization
+Instead of a private repo per student, we're going to work collaboratively in a single repository.
+You can work by yourself or with another student in a team.
+
+On the GitHub repository page for this lab, click "Fork" in the top right corner. This will create a copy of the lab repository in your own account. You will then clone this repository to RStudio. If you're working in a team, only one of you needs to fork the repository. Once you have cloned the repository, create a new .Rmd file with a name like "Lab02_teamname.Rmd", specific to your team. In that R Markdown file, complete the Lab Tasks and Discussion items outlined below. Then commit and push your work to GitHub. Your work will go to your forked version of the repository. Once you're ready, submit a pull request to merge your work back into the main class repository.
+
+## LAB tasks
+
+* **Read in the data set `data/bad-drivers.csv`**
+  * Name your dataset, for example, `badDrivers <- read.csv("./data/bad-drivers.csv")`
+  * (recommended) rename the columns to shorter nicknames
+```{r}
+library(readr)
+library(dplyr)
+library(ggplot2)
+
+badDrivers <- read.csv("data/bad-drivers.csv")
+names(badDrivers) <- c("States","numDrivers","perSpeeding","perAlcohol","perFocus","perFirstAcc","CIP","loss")
+#print(names(badDrivers))
+CIP = badDrivers$CIP
+loss = badDrivers$loss
+perFirstAcc = badDrivers$perFirstAcc
+perFocus = badDrivers$perFocus
+perSpeeding = badDrivers$perSpeeding
+perAlcohol = badDrivers$perAlcohol
+```
+
+* **Exploratory data analysis**
+  * Create a draftsman plot showing all pairwise comparisons between columns in the data.
+  * Present a brief description of trends you see in the data, and how they may influence fitting a model.
+```{r}
+plot(badDrivers)
+# plot those that seems like having a relationship
+loss_CIP <- lm(badDrivers$loss~badDrivers$CIP)
+ggplot(data=loss_CIP,mapping = aes(x=CIP, y=loss))+
+  geom_point()+
+  ggtitle("CIP vs. loss")
+
+loss_perFirstAcc <- lm(badDrivers$loss~badDrivers$perFirstAcc)
+ggplot(data=loss_perFirstAcc,mapping = aes(x=perFirstAcc, y=loss))+
+  geom_point()+
+  ggtitle("First Accident vs. loss")
+
+loss_perFocus <- lm(badDrivers$loss~badDrivers$perFocus)
+ggplot(data=loss_perFocus,mapping = aes(x=perFocus, y=loss))+
+  geom_point()+
+  ggtitle("Focus vs. loss")
+
+# From all the plots we see, there aren't many that appear to have clear relationships to each other. CIP and loss appear to have a positive linear relationship. In the small plot, it seems like the percentage of drivers never involved in a previous accident before has a weak linear relationship with loss, but the single plot doesn't reflect much on it. The percentage of people who were paying attention also doesn't relate too much to the loss. The ones without any relationship might add additional "noise" to the model I'm trying to fit.
+```
+  
+  * Plot the estimated distribution of _Percentage of Drivers Involved in Fatal Collisions who were speeding_ using a histogram.
+	  * If you include the above covariate as an explanatory variable in your regression (part of the X), will the distribution impact your model fit?
+```{r}
+hist(perSpeeding)
+
+#This distribution could have an impact on the model fit. It has a roughly normal distribution, but almost has two peaks, which will make a difference in the data.
+```
+	  
+* **Regression analysis**
+  * The target variable for our regression models is `Car Insurance Premiums (CIP)`, measured in dollars.
+  * Pick a covariate you feel is most related to Car Insurance Premiums (I'll call this `M` for most related)
+  * Fit a simple linear regression `(lm)` model that related **CIP** to **M** and save this model as `reg01`. 
+  * Fit a multiple linear regression model `(lm)` that includes **M** and save this as `reg02`.
+  * Fit a polynomial regression model `(lm)` relating **CIP** to **M** and save this as `reg03`.
+  * Pick a model from REG01, REG02, and REG03. Plot **M** by **CIP**, and overlay the chosen model's fitted values.
+  * Describe your model. Do all the variables significantly contribute to predicting **CIP**? Interpret the coefficients, their direction (positive or negative) and how they relate to **CIP**.
+  * How does your multiple regression model compare the your simple linear regression, and how would communicate these results to an audience?  
+```{r}
+reg01 <- lm(CIP~loss,data=badDrivers)
+reg02 <- lm(CIP~loss+perSpeeding+perAlcohol,data=badDrivers)
+reg03 <- lm(CIP~poly(loss,2,raw=TRUE),data=badDrivers)
+plot(reg01)
+plot(reg02)
+plot(reg03)
+#Up until now, from all the plots, it seems that the simple linear regression fits the best, because the residual plot looks fairly flat and Cook's distance shows that the outliers don't mess with the prediction too much.
+
+summary(reg01)
+summary(reg02)
+#For both models, the coefficient of loss is statistically significant, which means it contributes a lot to our prediction. For every one unit of loss, CIP increases by 4.47 dollars. In the multiple linear regression, the coefficients of the percentage of divers speeding or under the impact of alcohol don't appear to matter, as seen in the very first plots. In this model, for every one unit of loss, CIP appears to increase even more, by 4.51 dollars. The p-value is also smaller, which indicates that it's more significant. However, the increase in coefficient of loss could also be interpreted as the other two variables messing up the relationship. I would need more models and methods to determine which model to use.
+```
+  
+* **Hold-out**
+  * Randomly select, and remove, 10 states from the training set. Store these 10 states in a dataset called `holdOut` and remaining 41 states in a dataset called `training`.
+```{r}
+
+holdOutRows = sample(row.names(badDrivers),10,replace=FALSE)
+
+training = badDrivers[-as.numeric(holdOutRows),]
+holdOut  = badDrivers[as.numeric(holdOutRows),]
+
+print(holdOut)
+```
+  
+     * `badDrivers[c(1,2,3),]` selects the first, second, and third observation from your dataset.
+     *  Take a look at the `sample` command in **R**
+  * Re-train REG01,REG02,REG03 on `training`
+  * For REG01, 02, and 03, compute the mean-squared error (MSE) on `holdOut`
+```{r}
+rt_reg01 <- lm(CIP~loss,data=training)
+rt_reg02 <- lm(CIP~loss+perSpeeding+perAlcohol,data=training)
+rt_reg03 <- lm(CIP~poly(loss,2,raw=TRUE),data=training)
+
+rt_y_hat01 <- predict(rt_reg01,holdOut)
+  rt_y01 <- holdOut$CIP
+  rt_MSE01 <- mean((rt_y01-rt_y_hat01)^2)
+  
+rt_y_hat02 <- predict(rt_reg02,holdOut)
+  rt_y02 <- holdOut$CIP
+  rt_MSE02 <- mean((rt_y02-rt_y_hat02)^2)
+  
+rt_y_hat03 <- predict(rt_reg03,holdOut)
+  rt_y03 <- holdOut$CIP
+  rt_MSE03 <- mean((rt_y03-rt_y_hat03)^2)
+  
+print(rt_MSE01)
+print(rt_MSE02)
+print(rt_MSE03)
+```
+  
+  * Which model would you select and why?
+  
+  Now looking at the MSEs, I should choose the multiple linear regression model. However, the result doesn't appear to vary much. In other words, the models aren't predicting much better or worse than each other. I'm wondering if I have choosen the wrong M, though I think loss is the only one that shows a relationship.
+  
+* **Cross-validation**
+  * For REG01, REG02, REG03
+    * Split your data into 5 training/testing sets (note, one dataset will have 11 observations)
+	* Create an empty data.frame called `crossValResults` that has 3 columns (one for each model) and 5 rows (one for each test MSE)
+    * Program a for loop that
+	      * *trains* your model on 4 pieces of the data
+		  * *tests*, or makes predictions, on the "held-out" dataset. 
+		  * *computes* the MSE on the "held-out" dataset
+		  * *stores* the test MSE in `crossValResults`. 
+    * When completed, you should have computed 15 MSEs, 5 for every regression model stored as columns in a data frame.
+    * Compute the CV error for your regression models, the MSE averaged over each test set.
+	* How does the CV error compare to the hold-out error?
+	* How does the Cross-validation MSE compare between your simple and multiple regression?
+```{r}
+dataPieces <- split(badDrivers,1:5)
+#print(dataPieces)
+#dataPieces[[3]]
+
+crossValResults <- matrix(ncol = 3, nrow = 5)
+colnames(crossValResults) <- c("REG01", "REG02", "REG03")
+rownames(crossValResults) <- c("MSE1", "MSE2", "MSE3", "MSE4", "MSE5")
+#print(crossValResults)
+
+for(k in 1:5){
+  test = dataPieces[[k]]
+  trainingVector = setdiff(1:5,k)
+  train = do.call(rbind,dataPieces[trainingVector])
+  
+  predict01 <- lm(CIP~loss,data=train)
+  y_hat01 <- predict(predict01,test)
+  y01 <- test$CIP
+  MSE01 <- mean((y01-y_hat01)^2)
+  crossValResults[k,1]=MSE01
+  
+  predict02 <- lm(CIP~loss+perSpeeding+perAlcohol,data=train)
+  y_hat02 <- predict(predict02,test)
+  y02 <- test$CIP
+  MSE02 <- mean((y02-y_hat02)^2)
+  crossValResults[k,2]=MSE02
+  
+  predict03 <- lm(CIP~poly(loss,2,raw=TRUE),data=train)
+  y_hat03 <- predict(predict02,test)
+  y03 <- test$CIP
+  MSE03 <- mean((y03-y_hat03)^2)
+  crossValResults[k,3]=MSE03
+  
+}
+print(crossValResults)
+#CV Errors 
+mean(crossValResults[[1]])
+mean(crossValResults[[2]])
+mean(crossValResults[[3]])
+
+```
+	The CV error appears to be smaller than the hold-out error for simple and multiple linear regression models but larger for the polynomial regression model. The polynomial regression model isn't the best fit after all. The CV error for simple and multiple linear regression models shows that the prediction is more accurate when we train the data multiple times. The multiple linear regression model performs better in prediction than the simple linear regression model with a smaller CV error (and hold-out error).
+	
+	Resources:
+	https://stackoverflow.com/questions/32712301/create-empty-data-frame-with-column-names-by-assigning-a-string-vector/32712555
+	https://www.statmethods.net/graphs/density.html
+	https://data.library.virginia.edu/diagnostic-plots/
+	https://stackoverflow.com/questions/21807987/calculate-the-mean-for-each-column-of-a-matrix-in-r
+	https://www.cs.cmu.edu/~schneide/tut5/node42.html
+	

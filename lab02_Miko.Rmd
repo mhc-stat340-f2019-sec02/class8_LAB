@@ -1,0 +1,182 @@
+---
+title: "LAB02_miko"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(ggplot2)
+library(GGally)
+library(dplyr)
+
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r}
+badDrivers <- read.csv("./data/bad-drivers.csv")
+head(badDrivers)
+names(badDrivers)[2]<-"numDriver"
+names(badDrivers)[3]<-"speed"
+names(badDrivers)[4]<-"alcohol"
+names(badDrivers)[5]<-"nodistract"
+names(badDrivers)[6]<-"never"
+names(badDrivers)[7]<-"cip"
+names(badDrivers)[8]<-"losscip"
+names(badDrivers)
+```
+Part1 Exploratory data analysis
+
+Questions:
+
+#Present a brief description of trends you see in the data, and how they may influence fitting a model.
+
+How the data trend look like will determine which kind of model we want to use. We try to fit the plot with relative linear relation with simple linear regression while a more fluctuate one will fit better with a polynomial reg model. In the graph, cip are relatively postively correlated with loss of cip. It seems go well with linear manner. Cip is moderately and proportionately with variable "never" the drivers who never evolve a former accidents. And cip also relatively negatively correlated with number of drivers here. For the other variable, there are no obvious trend or stronger correlation. So we might focus on loss_cip which shows a relatively clear pattern on linearity.
+
+
+#If you include the above covariate as an explanatory variable in your regression (part of the X), will the distribution impact your model fit?
+
+Not very much influence since the loss_cip distributed relatively normal
+
+```{r}
+vars_to_use<- c("numDriver","speed","alcohol","nodistract","never","cip","losscip")
+ggpairs(badDrivers %>% select(vars_to_use))
+
+
+```
+
+
+```{r}
+ggplot(data=badDrivers,mapping = aes(x=speed)) + geom_histogram()
+
+
+
+```
+
+
+
+Part 2 Regression
+
+
+1.we pick losscip and named it M
+```{r}
+##reg01
+reg01<-lm(cip~losscip, data=badDrivers)
+print(reg01)
+##reg02
+reg02<-lm(cip ~ losscip + alcohol + speed, data=badDrivers)
+print(reg02)
+#reg03
+reg03<-lm(cip ~ losscip+I(losscip^2), data=badDrivers)
+print(reg03)
+```
+2. I pick model reg01
+```{r}
+plot(badDrivers$losscip, badDrivers$cip
+     ,xlab="losscip"
+     ,ylab="cip"
+     ,tck=0.02
+     )
+
+betas<-coef(reg01)
+beta0<-betas[1]
+beta1<-betas[2]
+
+xVals<-seq(min(badDrivers$losscip),max(badDrivers$cip),0.01)
+yPredictions<-beta0+beta1*xVals
+print(length(yPredictions))
+print(length(xVals))
+lines(xVals, yPredictions, col='red')
+``` 
+
+#Describe the model
+
+I choose the simple regression one and it has coefficients of 4.47, which is a postive relationship. This means that one unit increase in the loss_cip will lead to 4.47 increase in cip. 
+
+We also find that multilinear regression has a larger coefficient 4.5 than our single linear regression one,which is also showing a postive relationship. This means that one unit increase in the loss_cip will lead to 4.5 increase in cip. 
+
+
+
+
+
+Part3 Hold-out
+Randomly select, and remove, 10 states from the training set. Store these 10 states in a dataset called holdOut and remaining 41 states in a dataset called training.
+
+  
+
+```{r}
+data_10 <- floor(0.20 *nrow(badDrivers))
+dataPieces <-sample(seq_len(nrow(badDrivers)), size = data_10)
+
+holdOut <-badDrivers[dataPieces, ]
+training <-badDrivers[-dataPieces, ]
+badDrivers[c(1,2,3),]
+reg01_tr<-lm(cip~losscip, data=training)
+reg02_tr<-lm(cip ~ losscip + alcohol + speed, data=training)
+reg03_tr<-lm(cip ~ losscip+I(losscip^2), data=training)
+
+MSE_1 = function(model, training)
+{
+  N=nrow(training)
+  return(sum((predict(model,training)-training$cip)^2)/N)}
+s2Model=function(string){return(eval(parse(text=string)))}
+
+i<-1
+testMSEs <- rep(0,3)
+for(model in c("reg01_tr","reg02_tr","reg03_tr"))
+{
+  testMSEs[i]<-MSE_1(s2Model(model), holdOut)
+  i=i+1
+}
+
+head(testMSEs)
+
+```
+#which one you will choose
+I will choose the first one since it has the smallest test MSE and it is a model with better fit to the real data and less deviation.A larger MSE usually shows that the data values are dispersed widely around its true mean,while a smaller MSE shows that your data values are dispersed closely to its true mean, which is desirable for prediction 
+
+
+4.cross validation
+For REG01, REG02, REG03
+Split your data into 5 training/testing sets (note, one dataset will have 11 observations)
+
+Create an empty data.frame called crossValResults that has 3 columns (one for each model) and 5 rows (one for each test MSE)
+
+```{r}
+dataPieces<-split(badDrivers[sample(nrow(badDrivers)),], 1:5)
+#establish a data frame
+cros_result<-data.frame(matrix(data=NA,nrow = 5,ncol=3))
+
+#here is the for loop
+for(i in 1:5){
+rowsdata1<- as.numeric(row.names(dataPieces[[i]]))
+rowsdata2<-badDrivers[rowsdata1, ]
+train2<-badDrivers[-rowsdata2, ]
+M=nrow(rowsdata2)
+reg1_tr<-lm(cip~losscip, data=train2)
+cros_result[i,1]<-sum((predict(reg1_tr,badDrivers)-badDrivers$cip)^2)/M
+reg2_tr<-lm(cip ~ losscip + alcohol + speed, data=train2)
+cros_result[i,2]<-sum((predict(reg2_tr,badDrivers)-badDrivers$cip)^2)/M
+reg3_tr<-lm(cip ~ losscip+I(losscip^2), data=train2)
+cros_result[i,3]<-sum((predict(reg3_tr,badDrivers)-badDrivers$cip)^2)/M
+}
+head(cros_result)  
+#compute the cv error
+CVError1=mean(cros_result[,1])
+CVError2=mean(cros_result[,2])
+CVError3=mean(cros_result[,3])
+
+
+
+```
+
+
+
+reference&collaborators:
+@holly
+https://datascienceplus.com/create-new-variable-in-r/
+

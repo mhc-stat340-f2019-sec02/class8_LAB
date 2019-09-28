@@ -1,0 +1,91 @@
+Data set and Exploratory data analysis
+```{r}
+badDrivers <- read.csv("./data/bad-drivers.csv")
+names(badDrivers) <- c("state", "#_per_billion","Speed","Alcohol","NotDistracted","First","insurance","insurance_loss")
+badDrivers <- data.frame(badDrivers)
+library(ggplot2)
+plot(badDrivers)
+pairs(badDrivers[,1:4])
+pairs(badDrivers[,2:5])
+pairs(badDrivers[,3:6])
+pairs(badDrivers[,4:7])
+pairs(badDrivers[,5:8])
+```
+In most of the graph when "not distracted" is one of the variable, it appears that there's no strong linear relationship between "not distracted" and other variables. There is a somewhat strong linear relationship between the number of bad drivers per billion and number of drivers in Speedning and Alcohol. These mean that fitting a model between these variables might not give a good preddiction. There is also a somewhat strong linear relationship between the number of drivers in Speeding and the number of drivers in their first accident; between the number of drivers in Speeding and the Car insurance. The strongest linear relationship that appears in this draftman plot would be the one between car insurance and insurance loss. These stronger linear relationships show that fitting a model based on these relationships could give a better prediction. 
+```{r}
+ggplot() + geom_histogram(mapping = aes(x = Speed), binwidth = 4, data = badDrivers)
+```
+The graph shows that ditribution is slightly skewed but is still in a normal distribution form. Thus fitting a model would not require a data transformation.
+
+Regression analysis
+
+```{r}
+reg_1 <- lm(insurance~insurance_loss, data=badDrivers)
+summary(reg_1)
+reg_2 <- lm(insurance~insurance_loss+Alcohol,data=badDrivers)
+summary(reg_2)
+reg_3 <- lm(insurance~insurance_loss+I(insurance_loss^2),data = badDrivers)
+ggplot() + geom_point(mapping=aes(x=insurance_loss,y=insurance),data=badDrivers) + geom_abline(intercept = 285.3251, slope = 4.4733)
+```
+The model only includes one independent variable, "insurance_loss" which has a very small p-value. This means that this variable significantly contributes to predicting CIP. For each dollar increase in CIP, the model estimates that insurance lost goes up by 4.4733 dollar. If we assume that the insurance loss is 0 dollar, then the CIP is 285.3251 dollar. Direction is positive; insurance loss and insurance increase and decrease at the same time.
+
+The multiple regression model has a slightly larger p-value than simple linear regression. The slope of variable "insurance loss" in multiple regression is close to the one in simple regression model. 
+Interpretion of multiple regression: If the variable "Alcohol" stay as a constant, the CIP goes up by 4.4945 dollar for each dollar of increase in insurance loss. If the variable "insurance_loss" stay as a constant, the CIP goes up by 1.2189 dollar for each percentage of increase in percentage of Alcohol-impaired drivers in fatal collision. If we assume that the insurance loss is 0 dollar and the percentage of Alcoho-impaired drivers in fatal collision is 0%, the estimated CIP would be 245.0788 dollar. 
+
+Hold-out
+```{r}
+data_10 <- floor(0.20 * nrow(badDrivers))
+dataPieces <- sample(seq_len(nrow(badDrivers)), size = data_10)
+
+holdOut <- badDrivers[dataPieces, ]
+training <- badDrivers[-dataPieces, ]
+badDrivers[c(1,2,3),]
+reg01_new <- lm(insurance~insurance_loss, data=training)
+reg02_new <- lm(insurance~insurance_loss+Alcohol,data=training)
+reg03_new <- lm(insurance~insurance_loss+I(insurance_loss^2),data = training)
+MSE_0 =function(model,training){
+  N =nrow(training)
+  return(sum((predict(model,training) - training$insurance)^2)/N)}
+fromString2Model=function(string){return(eval(parse(text=string)))}
+i<- 1
+tstMSEs <- rep(0,3)
+for (model in c("reg01_new","reg02_new","reg03_new")){tstMSEs[i] <- MSE_0(fromString2Model(model),holdOut)
+i=i+1}
+head(tstMSEs)
+```
+I would choose the multiple regression model because it has the smallest MSE, 18525.40.
+
+Cross-validation
+
+```{r}
+dataPieces = split(badDrivers[sample(nrow(badDrivers)),],1:5)
+
+crossValResults <- data.frame(matrix(data=NA, nrow = 5, ncol = 3))
+
+for(i in 1:5){
+  rowststdata <- as.numeric(row.names(dataPieces[[i]]))
+  rowsoftstdata <- badDrivers[rowststdata,]
+  trainingdata<- badDrivers[-rowststdata,]
+  M=nrow(rowsoftstdata)
+  reg1_new <- lm(insurance~insurance_loss, data=trainingdata)
+  crossValResults[i,1]<- sum((predict(reg1_new,badDrivers)-badDrivers$insurance)^2)/M
+  
+  reg2_new <- lm(insurance~insurance_loss+Alcohol, data=trainingdata)
+  crossValResults[i,2] <- sum((predict(reg2_new,badDrivers)-badDrivers$insurance)^2)/M
+  
+  reg3_new <- lm(insurance~insurance_loss+I(insurance^2),data=trainingdata)
+  crossValResults[i,3] <- sum((predict(reg2_new,badDrivers)-badDrivers$insurance)^2)/M
+}
+head(crossValResults)
+cvError1 = mean(crossValResults[ ,1])
+cvError2 = mean(crossValResults[ ,2])
+cvError3 = mean(crossValResults[ ,3])
+
+
+# How does the CV error compare to the hold-out error?
+cvError1
+cvError2
+cvError3
+
+```
+The CV errors are much higher than the hold-out error. The reason that hold-out error is lower because it is based on only one split case, while the CV errors are the means of 5 splits. The multiple regression model has a smaller MSE than simple regression.
