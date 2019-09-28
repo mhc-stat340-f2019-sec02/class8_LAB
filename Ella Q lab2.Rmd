@@ -1,0 +1,276 @@
+---
+title: "Ella Q lab2"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+# class8 LAB
+
+
+## Description
+
+Data on driving incidents was collected for all 52 states in the United states.
+This lab will explore whether or not state-level factors contribute to Car insurance premiums.
+The original goal of this dataset was to determine which state had the worst drivers.
+
+<p align="center">
+  <img width="320" height="200" src="https://github.com/mhc-stat340-f2019-sec02/class8_LAB/blob/master/featured.jpeg">
+</p>
+
+## Organization
+Instead of a private repo per student, we're going to work collaboratively in a single repository.
+You can work by yourself or with another student in a team.
+
+On the GitHub repository page for this lab, click "Fork" in the top right corner. This will create a copy of the lab repository in your own account. You will then clone this repository to RStudio. If you're working in a team, only one of you needs to fork the repository. Once you have cloned the repository, create a new .Rmd file with a name like "Lab02_teamname.Rmd", specific to your team. In that R Markdown file, complete the Lab Tasks and Discussion items outlined below. Then commit and push your work to GitHub. Your work will go to your forked version of the repository. Once you're ready, submit a pull request to merge your work back into the main class repository.
+
+
+
+* **Exploratory data analysis*
+
+#Create a draftsman plot showing all pairwise comparisons between columns in the data.
+```{r}
+library(ggplot2)
+
+badDrivers <- read.csv("./data/bad-drivers.csv")
+names(badDrivers) <- c( "State",
+  "Num_DriversInCollision",
+  "Percentage_Speeding",
+  "Percentage_Alcohol",
+  "Percentage_NotDistracted",
+  "Percentage_NotInvolved_Accidents",
+  "CIP",
+  "Losses"
+)
+
+head(badDrivers)
+```
+
+```{r}
+plot(badDrivers)
+```
+
+# Present a brief description of trends you see in the data, and how they may influence fitting a model.
+- "CIP" vs. "Losses" has the strongest correlation, but its linearity is uncertain. The response variable is skewed to the right.
+- Plots with "Percentage_Alcohol" being the explanatory variabe are mostly centered or clutered in the middle.
+- In the plots with "Percentage_NotDistracted" being the response variable, dots are mostly on the upper side of these graphs with larger values of the resposne variable. Same situation appeared in the plots with "Percentage_NotDistracted" being hte explanatory variable，where dots are mostly clustered on the right side of these plots.
+- "Percentage_NotInvolved_Accidents" does not have a linear relationship with "CIP". 
+- Data transdormation is necessary for some plots because of the non-equal variations. 
+- Most plots do not present a strong correlation, so the accuracy of model fit can be affected. 
+  
+#Plot the estimated distribution of _Percentage of Drivers Involved in Fatal Collisions who were speeding_ using a histogram.
+	  * If you include the above covariate as an explanatory variable in your regression (part of the X), will the distribution impact your model fit?
+```{r}
+ggplot(data = badDrivers, aes(x = Percentage_Speeding)) + geom_histogram(bins = 12)
+```
+Yes, because this histogram does not have a normal distribution. It has two peaks and not not symmetric. Thus, the regression model can be affected by this explanatory variable.
+
+
+* **Regression analysis*
+ 
+#Pick a covariate you feel is most related to Car Insurance Premiums (I'll call this `M` for most related)
+Looking at the draftsman plot ablove, it looks like "Losses" is the variable best correlated to "CIP".
+
+#Fit a simple linear regression `(lm)` model that related **CIP** to **M** and save this model as `reg01`. 
+```{r}
+#simple linear regression
+reg01 <- lm(CIP ~ Losses, data = badDrivers) 
+summary(reg01)
+
+predict_reg01<- function(x) { predict(reg01, data.frame(Losses = x))}
+ggplot(data = badDrivers, mapping = aes(x = Losses, y = CIP)) + geom_point() +
+stat_function(fun = predict_reg01) +
+ggtitle("Simple Linear fit")
+
+plot(reg01)
+```
+
+#Fit a multiple linear regression model `(lm)` that includes **M** and save this as 'reg02'.
+For multiple regression fit, I add the variable "Percentage Of Drivers Involved In Fatal Collisions Who Had Not Been Involved In Any Previous Accidents" into the model. In the draftsman above, I think its dotplot shows the second strongest correlation with "CIP".
+```{r}
+#multiple regression
+reg02 <- lm(CIP ~ Losses + Percentage_NotInvolved_Accidents, data=badDrivers)
+summary(reg02)
+plot(reg02)
+```
+
+#Fit a polynomial regression model `(lm)` relating **CIP** to **M** and save this as 'reg03'
+```{r}
+#polynomial regression
+reg03 <- lm(CIP ~ Losses+I(Losses^2), data=badDrivers)
+summary(reg03)
+plot(reg03)
+```
+
+#Pick a model from REG01, REG02, and REG03. Plot **M** by **CIP**, and overlay the chosen model's fitted values.
+#Describe your model. Do all the variables significantly contribute to predicting **CIP**? Interpret the coefficients, their direction (positive or negative) and how they relate to **CIP**.
+
+I choose simiple linear regression because it has the largest adjusted R-squared number.
+The equation between CIP and Losses is Y_predicted = 4.5X + 285.3 so they have a positive correlation.
+In the population of bad drivers in the United States similar to the sample enrolled in this study, it is estimated that an increase of 1 dollar in the losses incurred by insurance companies for collisions per insured driver is associated with an increases 4.5 dollars in the Car Insurance Premiums.
+
+# How does your multiple regression model compare the your simple linear regression, and how would communicate these results to an audience?  
+
+The adjusted R-squared of simple linear regression is 0.3758, and it of mltiple regression model si 0.3653
+In general, since there is no big difference bteweeen these two numbers, we know that "Losses" has a strong and stable corrleation with "CIP".
+The small difference indecates that "Percentage_NotInvolved_Accidents" is less associated with "CIP". 
+
+
+* **Hold-out*
+
+#Randomly select, and remove, 10 states from the training set. Store these 10 states in a dataset called 'holdOut' and remaining 41 states in a dataset called 'training'.
+```{r}
+library(dplyr)
+
+chosen <- sample(unique(badDrivers$State), 10)
+holdOut <- subset(badDrivers, State %in% chosen)
+training <- badDrivers[-c(chosen),]
+
+print(holdOut)
+print(training)
+```
+   
+#Re-train REG01,REG02,REG03 on 'training'
+```{r}
+#SLR
+retrain_reg01 <- lm(CIP ~ Losses, data = training) 
+summary(retrain_reg01)
+```
+
+```{r}
+#multiple regression
+retrain_reg02 <- lm(CIP ~ Losses + Percentage_NotInvolved_Accidents, data=training)
+summary(retrain_reg02)
+```
+
+```{r}
+#polynomial regression 
+retrain_reg03 <- lm(CIP ~ Losses+I(Losses^2)+I(Losses^3), data=training)
+summary(retrain_reg03)
+```
+
+#For REG01, 02, and 03, compute the mean-squared error (MSE) on 'holdOut'
+```{r}
+MSE = function(model, data){
+        N = nrow(data)
+        return(sum((predict(model, newdata = data) - data$CIP)^2)/N)
+}
+
+fromString2Model = function(string){
+        return(eval(parse(text=string)))
+}
+
+i<-1
+MSEs <- rep(0,3)
+for (model in c("reg01","reg02","reg03")){
+        MSEs[i] <- MSE(fromString2Model(model), holdOut)
+        i=i+1
+}
+print(MSEs)
+```
+
+#Which model would you select and why?
+I choose reg03 because it has the smallest MSE
+
+
+* **Cross-validation*
+
+#For REG01, REG02, REG03, split your data into 5 training/testing sets (note, one dataset will have 11 observations)
+```{r}
+K=5
+dataPieces = split(badDrivers[sample(nrow(badDrivers)),], 1:5)
+```
+
+#Create an empty data.frame called 'crossValResults' that has 3 columns (one for each model) and 5 rows (one for each test MSE)
+```{r}
+crossValResults <- as.data.frame(matrix(4, ncol = 3, nrow = 5))
+```
+
+#Program a for loop that
+	      * *trains* your model on 4 pieces of the data
+		  * *tests*, or makes predictions, on the "held-out" dataset. 
+		  * *computes* the MSE on the "held-out" dataset
+		  * *stores* the test MSE in `crossValResults`. 
+```{r}
+crossValResults_01 = sapply(dataPieces
+              ,function(TestData){
+                rowsOfTstData <- as.numeric(row.names(TestData))
+                
+                trainingData <- badDrivers[-rowsOfTstData,]
+                model <- lm(CIP ~ Losses, data = trainingData) 
+                
+                MSE = function(model,data){
+                  N = nrow(TestData)
+                  return( sum((predict(model,TestData) - data$CIP)^2)/N )
+                  }
+               return(MSE(model, TestData))
+})
+
+print(crossValResults_01)
+```
+
+```{r}
+crossValResults_02 = sapply(dataPieces
+              ,function(TestData){
+                rowsOfTstData <- as.numeric(row.names(TestData))
+                
+                trainingData <- badDrivers[-rowsOfTstData,]
+                model <- lm(CIP ~ Losses + Percentage_NotInvolved_Accidents, data=trainingData)
+                
+                MSE = function(model,data){
+                  N = nrow(TestData)
+                  return( sum((predict(model,TestData) - data$CIP)^2)/N )
+                  }
+               return(MSE(model, TestData))
+})
+
+print(crossValResults_02)
+```
+
+```{r}
+crossValResults_03 = sapply(dataPieces
+              ,function(TestData){
+                rowsOfTstData <- as.numeric(row.names(TestData))
+                
+                trainingData <- badDrivers[-rowsOfTstData,]
+                model <- lm(CIP ~ Losses+I(Losses^2)+I(Losses^3), data=trainingData)
+                
+                MSE = function(model,data){
+                  N = nrow(TestData)
+                  return( sum((predict(model,TestData) - data$CIP)^2)/N )
+                  }
+               return(MSE(model, TestData))
+})
+
+print(crossValResults_03)
+```
+
+#Compute the CV error for your regression models, the MSE averaged over each test set.
+```{r}
+cvError_01 = mean(crossValResults_01)
+print(cvError_01)
+
+cvError_02 = mean(crossValResults_02)
+print(cvError_02)
+
+cvError_03 = mean(crossValResults_03)
+print(cvError_03)
+```
+
+#How does the CV error compare to the hold-out error?
+The CV errors are larger than hold-out errors.
+
+#How does the Cross-validation MSE compare between your simple and multiple regression?
+
+Since the Cross-validation MSE changes everytime, we cannot make conclusion unless we try enough times.
+I tried 10 times and my result shows that although differences between them are varied, the MSE of simple regression is less than MSE of multiple regression every time. 
+
+	
