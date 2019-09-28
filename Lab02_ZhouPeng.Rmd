@@ -34,7 +34,7 @@ ggpairs(badDrivers, cardinality_threshold = 51)
 ```
 
 ####Question: Present a brief description of trends you see in the data, and how they may influence fitting a model.
-From the draftsman plot, we observed a moderately strong positive linear relationship between Car_insurance and Losses_incurred. 
+From the draftsman plot, we observed a moderately strong positive linear relationship between CIP and Losses_incurred. 
 Since these two variables are moderately correlated, the model fit might be affected (will be more accurate) after we include the above covariation as an explanatory variable in regression.
 
 
@@ -44,6 +44,8 @@ Since these two variables are moderately correlated, the model fit might be affe
 hist(badDrivers$Pct_speeding)
 
 ```
+Since the estimated distribution of Percentage of Drivers Involved in Fatal Collisions who were speeding is roughly normal, the model fit will not be affected if I include the above covariate as an explanatory variable in the regression.
+
 
 ##Regression analysis
 The target variable for our regression models is CIP.
@@ -104,7 +106,7 @@ The QQ plot of polynomial regression model doesn't seem very good.
 
 
 ####Choice of Model and its description 
-We pick Multiple Linear Regression Model（Reg02), because it has the highest Adjusted R-squared.
+We pick Multiple Linear Regression Model（Reg02), because it has the highest Adjusted R-squared.Also, the QQ plot of the multiple linear regression seems the best.
 
 The predicted equation for CIP is CIP = 412.7244 + 4.4274 * Losses_incurred + (-7.6774) * Number_of_driver.  
 This can also be written as the predicted CIP = y_hat =  412.7244 + 4.4274 * X1 + (-7.6774) * X2.
@@ -116,7 +118,7 @@ Holding everything else constant, one unit increase in Number_of_driver is relat
 Holding everything else constant, one unit increase in Losses_incurred is related to 4.4274 unit increase in CIP in a similar population.  
 With Number_of_driver = Losses_incurred = 0, CIP = 412.7244 in a similar population.
 
-The Adjusted R-squared value of multiple linear regression is higher than the multiple R-squared value of simple linear regression model. 
+The Adjusted R-squared value of multiple linear regression is higher than the multiple R-squared value of simple linear regression model. This means that the multiple linear regression fit the data better.
 
 
 ##Hold-out
@@ -194,27 +196,29 @@ We will select REG02 multiple linear regression model since REG02 has the smalle
 ##Cross-validation
 
 ```{r}
-a <- badDrivers$State
 
-newStates1 <- sample(a, 10, replace = FALSE, prob = NULL)
+dataset1 <- badDrivers$State
+
+newStates1 <- sample(dataset1, 10, replace = FALSE, prob = NULL)
 holdOut1 <- badDrivers[newStates1,]
 training1 <- badDrivers[-c(newStates1),]
 
-b <- training1$State
+dataset2 <- training1$State
 
-newStates2 <- sample(b, 10, replace = FALSE, prob = NULL)
+newStates2 <- sample(dataset2, 10, replace = FALSE, prob = NULL)
 holdOut2 <- training1[newStates2,]
 training2 <- training1[-c(newStates2),]
 
-c <- training2$State
+dataset3 <- training2$State
 
-newStates3 <- sample(c, 10, replace = FALSE, prob = NULL)
+newStates3 <- sample(dataset3, 10, replace = FALSE, prob = NULL)
 holdOut3 <- training2[newStates3,]
 training3 <- training2[-c(newStates3),]
 
-d <- training3$State
+dataset4 <- training3$State
 
-newStates4 <- sample(d, 10, replace = FALSE, prob = NULL)
+newStates4 <- sample(dataset4, 10, replace = FALSE, prob = NULL)
+
 holdOut4 <- training3[newStates4,]
 holdOut5 <- training3[-c(newStates4),]
 
@@ -306,7 +310,7 @@ fromString2Model = function(string){
 
 i <-1
 
-crossValResults <- rep(0,3)
+crossValResults <- rep(0,15)
 for (Reg in c("Reg01_train1","Reg02_train1","Reg03_train1","Reg01_train2","Reg02_train2","Reg03_train2","Reg01_train3","Reg02_train3","Reg03_train3","Reg01_train4","Reg02_train4","Reg03_train4","Reg01_train5","Reg02_train5","Reg03_train5" )){
   crossValResults[i] <- MSE(fromString2Model(Reg), holdOut)
   i=i+1
