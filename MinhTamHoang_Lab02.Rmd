@@ -1,0 +1,262 @@
+---
+title: "Lab02"
+author: "Minh Tam Hoang"
+date: "9/27/2019"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+
+
+
+```{r}
+#' Return the predictions from the linear models
+#' @param model_fit
+#' @param testData a compatible new data
+#' @return 
+
+prediction_reg <- function(model_fit, testData){
+  return(predict(model_fit,testData))
+}
+
+#'  Fit linear models and return the predictions from them.
+#' @param y target variable
+#' @param x covariate
+#' @param x_2 covariate
+#' @param data data set
+#' @param type type of regression
+#' @param horizon a compatible new data
+model_fit <- function(y, x,x_2, data, type, horizon){
+  
+  
+  if(!missing(x_2) && type == "MLR"){
+    
+    formula <- paste0(y, "~", x, "+", x_2)
+    reg <- lm(as.formula(formula), data = data)
+  }else{
+    if(type == "SLR"){
+      formula <- paste0(y, "~", x)
+      reg <- lm(as.formula(formula), data = data)
+    }else{
+      formula <- paste0(y, "~", x, "+", "I(", x,"^2) + ", "I(", x, "^3)")
+      reg <- lm(as.formula(formula), data = data) 
+     
+    }
+  }
+  prediction_reg(reg,horizon)
+}
+
+
+
+
+
+
+
+
+```
+
+
+
+
+
+```{r}
+library(ggplot2)
+bad_drivers_data <- read.csv('./data/bad-drivers.csv')
+head(bad_drivers_data)
+names(bad_drivers_data) <- c("state", "Number of drivers involved in fatal collisions", 
+                             "%of drivers involved in fatal collision who were speeding", 
+                             "%of drivers involved in fatal collision who were alcohol impaired", 
+                             "%of drivers involved in fatal collision who were not distracted", 
+                             "prevaccidents", 
+                             "CIP","Losses")
+plot(bad_drivers_data)
+
+cor(x = bad_drivers_data$Losses, y = bad_drivers_data$CIP)
+cor(x = bad_drivers_data$prevaccidents, y = bad_drivers_data$CIP)
+# Plot the estimated distribution of _Percentage of Drivers Involved in Fatal Collisions who were speeding_ using a histogram.
+hist(bad_drivers_data$`%of drivers involved in fatal collision who were speeding`)
+
+```
+```{r}
+reg01 <- lm(bad_drivers_data$CIP~bad_drivers_data$Losses)
+
+reg02 <- lm(bad_drivers_data$CIP~bad_drivers_data$Losses+bad_drivers_data$prevaccidents)
+
+reg03 <- lm(bad_drivers_data$CIP~bad_drivers_data$Losses + I(bad_drivers_data$Losses^2) + I(bad_drivers_data$Losses^3))
+
+summary(reg01)
+summary(reg02)
+summary(reg03)
+
+coef(reg01)
+coef(reg02)
+coef(reg03)
+ggplot2::ggplot()+
+  geom_point(mapping = aes(x = bad_drivers_data$Losses, y = bad_drivers_data$CIP))+
+  geom_line(mapping = aes(x = bad_drivers_data$Losses, y = fitted(reg01)))+
+  geom_line(mapping = aes(x = bad_drivers_data$Losses, y = fitted(reg02)), col = "green")+
+  geom_line(mapping = aes(x = bad_drivers_data$Losses, y = fitted(reg03)), col = "red")
+```  
+###### Hold-out
+```{r}
+random <- sample(1:nrow(bad_drivers_data), size = 10)
+hold_out <- bad_drivers_data[random,]
+head(hold_out)
+train <- bad_drivers_data[-random,]
+head(train)
+REG_01 <- lm(train$CIP~ train$Losses)
+
+REG_02  <- lm(train$CIP~train$Losses+train$prevaccidents)
+
+REG_03 <- lm(train$CIP~train$Losses + I(train$Losses^2)+ I(train$Losses^3))
+m <- 0
+for (type in c("SLR", "MLR", "CR")){
+  
+ 
+    
+    pred_val <- model_fit("CIP"
+                                ,"Losses"
+                                ,"prevaccidents"
+                                ,data = train
+                                ,type = type
+                                ,horizon = hold_out)
+    
+    MSE <- mean((hold_out$CIP - pred_val)^2)
+    
+   print(type) 
+   print(MSE)
+   
+   m = m+1
+}
+```
+#### Cross_validation
+
+```{r}
+# Split your data into 5 training/testing sets 
+train_test <- list()
+j = 1
+for( i in 1:4){
+  
+  train_test[[i]] <- bad_drivers_data[j:(j+9),]
+  j <- j+10
+}
+train_test[[5]] <- tail(bad_drivers_data, 11)
+
+#Obtain a list containing train data and a list containing hold-out data
+train_valid <- list()
+hold_out_set <- list()
+train_set <- list()
+for(i in 1 : length(train_test)){
+  train_test_f <- train_test
+  hold_out_set[[i]] <- train_test[[i]]
+ 
+  train_test_f[[i]] <- NULL
+  train_valid[[i]] <- train_test_f
+  
+  for( j in 1: length(train_valid[[i]])){
+    a <- train_valid[[i]]
+    a <-rbind.data.frame(a[[1]], a[[2]], a[[3]], a[[4]])
+    
+  }
+  train_set[[i]] <- a
+}
+
+
+
+
+# Create an empty data.frame called `crossValResults` that has 3 columns (one for each model) and 5 rows (one for each test MSE)
+crossValResults <- as.data.frame(matrix(NA, nrow = 5, ncol = 3))
+colnames(crossValResults) <- c("SLR", "MLR", "CR")
+k <- 1
+for (model_type in c("SLR", "MLR", "CR")){
+  
+  for( i in 1:length(train_set)){
+    
+      prediction_val <- model_fit("CIP"
+                                  ,"Losses"
+                                  ,"prevaccidents"
+                                  ,data = train_set[[i]]
+                                  ,type = model_type
+                                  ,horizon = hold_out_set[[i]])
+     
+      MSE <- mean((hold_out_set[[i]]$CIP - prediction_val)^2)
+      
+     
+      crossValResults[i,k] <- MSE
+    
+  }
+  k = k+1
+}
+
+print(crossValResults)
+
+
+CV_errors <- c(mean(crossValResults[,1]), mean(crossValResults[,2]), mean(crossValResults[,3]))
+print(" CV scores for SLR, MLR, CB:")
+print(CV_errors)
+
+```
+
+
+
+
+## Brief Report
+
+# Paragraph 1: Describe the dataset
+
+In this lab, we worked on the dataset on driving incidents that was collected for all 52 states in the States. 
+This data set contains information on insurance pay-outs, insurance charges, and number of car crashes due to speeding, alcohol, etc...
+across the country.
+There are 51 samples and 7 feature-variables in this data set. The purpose of this lab is to explore whether or not state-level factors influence car insurance premiums in the States.
+
+
+# Paragraph 2: Describe the models you'll use to make predictions.
+ a) Exploratory data analysis:
+ 
+ According to the draftsman plot, I notice that there exists a faily strong linear relationship between CIPS and losses incurred by insurance companies for collisions per insured driver. CIPS and Percentage Of Drivers Involved In Fatal Collisions Who Had Not Been Involved In Any Previous Accidents are positively related. No obvious, clear trends are observed in other pairs of variables.
+ The distribution of the covariate as an explanatory variable has no effect on the model fit since covariates are not random variables and are fixed. 
+ 
+ b) Regression analysis
+ 
+ The target variable is CIPS, and we decided to choose 'losses incurred by insurance companies for collisions per insured driver' as a covariate in our regression (since the value of correlation of CIPS and losses is largest, it seems that 'losses' is most related to the target variable)
+ 
+ +) Single linear regression: 
+ As the variable 'Losses' does relate to y linearly, fitting a straight line to this regression can capture the relationship between these two variables.
+ Based on this single linear regression, it is estimated that each increase in mean 'Losses' of one dollar is associated with an increase of about
+ 4.473 in the mean CIP. Also, a hypothesis test indicates that there exists an association/relationship between mean 'losses' and mean 'CIP'(since
+ p-value for the test is much smaller than the significance level, providing evidence against the null hypothesis).
+ The squared correlation R^2 is 0.3758, which indicates that the inclusion of 'losses' in the regression accounts for 37.58% of the variability in the data. 
+ 
+ Q:How does your multiple regression model compare the your simple linear regression, and how would communicate these results to an audience? 
+ 
+ The adjusted R-square is 36.53 and only one variable, 'losses' is significant by t-test. The inclusion of both 'losses' and percentage of drivers involved in fatal collision who were had not been involved in previous accidents accounts for 36.53% of the variability in the data, which does not show any improvement over the smaller model.
+ 
+As it is difficult and unconvincing to visually assess the model fit, we use the test metric (MSE) to evaluate the model fits and determine which model fit has a better performance in predicting the target variable.
+ 
+# Paragraph 3: Summarize the methods you'll use to decide which model is best. Make sure to define and describe the test metric (MSE) 
+   
+   
+   **Hold-out**
+   
+In this method, we randomly selected and removed 10 states from the data set and stored them in "Hold-out set". Also, we stored the remaining states in "training". We re-trained single linear regression, multiple linear regression and cubic regression on the training set and computed and evaluated the MSE on the hold-out set.
+
+The model with the smallest MSE is the single linear regression, which means that the difference between model predictions made by the single linear model and the empirical data is the smallest. Hence, single linear model shows a better performance in predicting the CIPs in comparison with the multiple linear regression and cubic regression models.
+
+
+**Cross-validation**
+
+
+In this method, we splitted the data set into 5 pieces of data. Then, we trained the models on four pieces of the data, made predictions on the test-set, and computed the MSE on each test set. For each model, we averaged the MSEs over the test sets and obtained the CV-scores.
+
+ How does the CV error compare to the hold-out error?
+
+Since we randomly split the data into train and hold-out sets in the hold-out method, it is hard to tell whether or not CV error is smaller than the hold-out error. This is because the estimate of test error in the hold-out method is heavily dependent on how we divide the data.
+
+Cross-validation is more reliable than hold-out method in evaluating and assessing the model fit. This is because in the hold out method, we randomly split our data set into training set and test set. The evaluation greatly depend on the end points of training data and test data, which means that the estimates of test error are significantly different due to how the divisions of the data is made.
+Meanwhile, in cross-validation method, we split the data set into x pieces, and repeat the hold-out method x times. Thus, the evaluation no long depends on how the data is divided, and therefore, the variance of the estimate  will decrease. 
+
+How does the Cross-validation MSE compare between your simple and multiple regression?
+
+The Cross-validation MSE of simple regression is slightly smaller that of multiple regression, which suggests that the simple linear model gives a better fit than the bigger model. We might want to try multiple regression with different covariates than the precentage of drivers involved in previous accidents to see if there exist some covariates that contribute significantly to the prediction of CIPs in combination with Losses incurred by insurance companies for collisions per insured driver.
+
