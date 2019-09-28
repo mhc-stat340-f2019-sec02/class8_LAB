@@ -8,7 +8,7 @@ knitr::opts_chunk$set(echo = TRUE)
 library(ggplot2)
 library(GGally)
 library(dplyr)
-library(caret)
+
 ```
 
 ## R Markdown
@@ -32,12 +32,15 @@ names(badDrivers)
 Part1 Exploratory data analysis
 
 Questions:
-Create a draftsman plot showing all pairwise comparisons between columns in the data.
-Present a brief description of trends you see in the data, and how they may influence fitting a model.
-Plot the estimated distribution of Percentage of Drivers Involved in Fatal Collisions who were speeding using a histogram.
-If you include the above covariate as an explanatory variable in your regression (part of the X), will the distribution impact your model fit?
+
+#Present a brief description of trends you see in the data, and how they may influence fitting a model.
+
+How the data trend look like will determine which kind of model we want to use. We try to fit the plot with relative linear relation with simple linear regression while a more fluctuate one will fit better with a polynomial reg model. In the graph, cip are relatively postively correlated with loss of cip. It seems go well with linear manner. Cip is moderately and proportionately with variable "never" the drivers who never evolve a former accidents. And cip also relatively negatively correlated with number of drivers here. For the other variable, there are no obvious trend or stronger correlation. So we might focus on loss_cip which shows a relatively clear pattern on linearity.
 
 
+#If you include the above covariate as an explanatory variable in your regression (part of the X), will the distribution impact your model fit?
+
+Not very much influence since the loss_cip distributed relatively normal
 
 ```{r}
 vars_to_use<- c("numDriver","speed","alcohol","nodistract","never","cip","losscip")
@@ -45,25 +48,18 @@ ggpairs(badDrivers %>% select(vars_to_use))
 
 
 ```
-#description
 
-#Plot the estimated distribution of Percentage of Drivers Involved in Fatal Collisions who were speeding using a histogram.
+
 ```{r}
 ggplot(data=badDrivers,mapping = aes(x=speed)) + geom_histogram()
 
 
 
 ```
-#If you include the above covariate as an explanatory variable in your regression (part of the X), will the distribution impact your model fit?
+
 
 
 Part 2 Regression
-The target variable- Car Insurance Premiums (CIP),  in dollars.
-Pick a covariate you feel is most related to Car Insurance Premiums (I'll call this M for most related)
-Fit a simple linear regression (lm) model that related CIP to M and save this model as reg01.
-Fit a multiple linear regression model (lm) that includes M and save this as reg02.
-Fit a polynomial regression model (lm) relating CIP to M and save this as reg03.
-Pick a model from REG01, REG02, and REG03. Plot M by CIP, and overlay the chosen model's fitted values.
 
 
 1.we pick losscip and named it M
@@ -98,34 +94,20 @@ lines(xVals, yPredictions, col='red')
 ``` 
 
 #Describe the model
-3.Describe your model. Do all the variables significantly contribute to predicting CIP? Interpret the coefficients, their direction (positive or negative) and how they relate to CIP.
-How does your multiple regression model compare the your simple linear regression, and how would communicate these results to an audience?
+
+I choose the simple regression one and it has coefficients of 4.47, which is a postive relationship. This means that one unit increase in the loss_cip will lead to 4.47 increase in cip. 
+
+We also find that multilinear regression has a larger coefficient 4.5 than our single linear regression one,which is also showing a postive relationship. This means that one unit increase in the loss_cip will lead to 4.5 increase in cip. 
+
+
+
+
 
 Part3 Hold-out
 Randomly select, and remove, 10 states from the training set. Store these 10 states in a dataset called holdOut and remaining 41 states in a dataset called training.
-badDrivers[c(1,2,3),] selects the first, second, and third observation from your dataset.
-Take a look at the sample command in R
-set.seed(20)
-train_val_inds<-caret::createDataPartition(
-  y=badDrivers$cip,
-  p=0.8
-  
-)
-driver_train_val<- badDrivers%>%slice(train_val_inds[[1]])
-driver_test_val<- badDrivers %>%slice(-train_val_inds[[1]])
-train_val_inds<-caret::createDataPartition(
-  
-  y=driver_train_val$cip,
-  p=0.8
-)
 
-driver_train<-driver_train_val%>%slice(train_val_inds[[1]])
-driver_val<-driver_train_val%>%slice(-train_val_inds[[1]])
-
-train_val_mse<-data.frame
-{
   
-}
+
 ```{r}
 data_10 <- floor(0.20 *nrow(badDrivers))
 dataPieces <-sample(seq_len(nrow(badDrivers)), size = data_10)
@@ -150,35 +132,51 @@ for(model in c("reg01_tr","reg02_tr","reg03_tr"))
   testMSEs[i]<-MSE_1(s2Model(model), holdOut)
   i=i+1
 }
+
 head(testMSEs)
 
 ```
 #which one you will choose
-I will choose the first one since it has the smallest test MSE and it is a model with better fit to the real data and less deviation.
+I will choose the first one since it has the smallest test MSE and it is a model with better fit to the real data and less deviation.A larger MSE usually shows that the data values are dispersed widely around its true mean,while a smaller MSE shows that your data values are dispersed closely to its true mean, which is desirable for prediction 
 
+
+4.cross validation
 For REG01, REG02, REG03
 Split your data into 5 training/testing sets (note, one dataset will have 11 observations)
 
 Create an empty data.frame called crossValResults that has 3 columns (one for each model) and 5 rows (one for each test MSE)
 
 ```{r}
+dataPieces<-split(badDrivers[sample(nrow(badDrivers)),], 1:5)
+#establish a data frame
+cros_result<-data.frame(matrix(data=NA,nrow = 5,ncol=3))
+
+#here is the for loop
+for(i in 1:5){
+rowsdata1<- as.numeric(row.names(dataPieces[[i]]))
+rowsdata2<-badDrivers[rowsdata1, ]
+train2<-badDrivers[-rowsdata2, ]
+M=nrow(rowsdata2)
+reg1_tr<-lm(cip~losscip, data=train2)
+cros_result[i,1]<-sum((predict(reg1_tr,badDrivers)-badDrivers$cip)^2)/M
+reg2_tr<-lm(cip ~ losscip + alcohol + speed, data=train2)
+cros_result[i,2]<-sum((predict(reg2_tr,badDrivers)-badDrivers$cip)^2)/M
+reg3_tr<-lm(cip ~ losscip+I(losscip^2), data=train2)
+cros_result[i,3]<-sum((predict(reg3_tr,badDrivers)-badDrivers$cip)^2)/M
+}
+head(cros_result)  
+#compute the cv error
+CVError1=mean(cros_result[,1])
+CVError2=mean(cros_result[,2])
+CVError3=mean(cros_result[,3])
 
 
 
 ```
 
-Program a for loop that
-trains your model on 4 pieces of the data
-tests, or makes predictions, on the "held-out" dataset.
-computes the MSE on the "held-out" dataset
-stores the test MSE in crossValResults.
-When completed, you should have computed 15 MSEs, 5 for every regression model stored as columns in a data frame.
-Compute the CV error for your regression models, the MSE averaged over each test set.
-How does the CV error compare to the hold-out error?
-How does the Cross-validation MSE compare between your simple and multiple regression?
 
 
-
-reference:
+reference&collaborators:
+@holly
 https://datascienceplus.com/create-new-variable-in-r/
 
